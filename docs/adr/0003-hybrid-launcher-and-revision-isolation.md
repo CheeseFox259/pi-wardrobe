@@ -1,0 +1,7 @@
+# Combine native preset management with an isolated Pi launcher
+
+Wardrobe keeps its native `/wardrobe` management entry, but full changes to executable resources or package revisions launch a fresh Pi process in a dedicated revision agent directory: controlled Pi 1.1.0 experiments showed persistent Git checkout collisions and timers/global state surviving reload. Pure declarative soft changes remain idle-only; native installation is reviewed and staged in a new directory, credentials are not automatically inherited, and retained revisions are not upgraded in place. This trades disk use, explicit authentication, and process handoff complexity for clearer ownership and recovery boundaries, without claiming a sandbox or rollback of external effects.
+
+`pi --wardrobe` is an explicitly enabled shell/PATH forwarding integration that selects a preset before starting real Pi; ordinary invocations forward unchanged to a resolved executable, and the existing binary is never overwritten automatically. Without that integration, a standalone `wardrobe` launcher provides the same startup selection. Extension flag handling occurs after Pi has captured the agent directory, so it cannot by itself supply that pre-start boundary.
+
+Evidence and limitations: `.scratch/wardrobe-foundation/experiments/native-lifecycle/README.md`. This is an accepted policy, not a completed launcher or runtime validation of V1.

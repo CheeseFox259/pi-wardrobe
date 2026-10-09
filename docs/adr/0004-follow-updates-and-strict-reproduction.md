@@ -1,0 +1,5 @@
+# Follow reviewed updates by default, pin revisions explicitly
+
+Wardrobe sessions default to follow mode: on launch they use the newest available, approved revision of the same source-qualified preset, automatically checking requirements and recording migration without repeatedly requesting update approval. Strict mode pins an exact installed revision for reproducibility and refuses missing or drifting resources; ordinary follow history does not retain every old revision forever. We reject making every resource update invalidate historical sessions, while also rejecting silent revision substitution in strict mode: Pi itself restores dialogue against current resources, and skill-version changes alone do not prove incompatibility or safety.
+
+In-session tree navigation never swaps executable revisions. New code is approved at installation, credentials and user restrictions remain separate, old messages are not rewritten, and unmet requirements still stop execution. This revises ADR 0003's blanket mismatch wording: explicit follow migration is allowed; unverified drift or strict mismatch is not.
