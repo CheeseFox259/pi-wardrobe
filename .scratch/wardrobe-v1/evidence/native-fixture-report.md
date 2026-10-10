@@ -21,35 +21,87 @@ npm run fixtures:verify
 
 ### agent-isolation
 
-Generated: 2026-10-10T03:07:01.088Z — failures: 0
+Generated: 2026-10-10T08:58:40.650Z — failures: 0
 
 | Observation | Detail |
 | --- | --- |
-| fixtures-ready | {"origin":"http://127.0.0.1:65051","gitCommits":{"v1":"9fdfa52c3fef8ab37fc554684f9250dd31aa0b0c","v2":"1d0c1bfe6a4342e256e3e67b7d250d9a1345bfda"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+| fixtures-ready | {"origin":"http://127.0.0.1:65353","gitCommits":{"v1":"aef37854419487810ccc2d26e239ab964075dbd2","v2":"10ade4819bb315ae9a73a00faae1ee046101ab0b"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
 | two-agent-dirs-isolate-same-git-source | {"primaryRevision":"v1","secondRevision":"v2","distinctCheckoutPaths":true,"sentinelFilesUnchanged":["unrelated.txt","auth.json"]} |
 | directory-scoped-removal | {"removedFrom":"second","untouched":"primary"} |
 | preferences-preserved-across-agents | {"agents":["baseline","primary","second"],"preferences":["defaultThinkingLevel","theme","enableInstallTelemetry","compaction","retry","fixtureUserChoice"]} |
 
-### git-lifecycle
+### composition-provenance
 
-Generated: 2026-10-10T03:07:04.611Z — failures: 0
+Generated: 2026-10-10T08:58:48.762Z — failures: 0
 
 | Observation | Detail |
 | --- | --- |
-| fixtures-ready | {"origin":"http://127.0.0.1:65061","gitCommits":{"v1":"04f8b489d1416597ced59211a9e4c13594b0e4fe","v2":"771ca34562f883a5ec9a75a512c1bbd85b303958"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
-| git-source-addressable | {"v1":"04f8b489d1416597ced59211a9e4c13594b0e4fe","v2":"771ca34562f883a5ec9a75a512c1bbd85b303958"} |
-| git-native-install | {"source":"git:http://127.0.0.1:65061/git/wardrobe-git-fixture.git@04f8b489d1416597ced59211a9e4c13594b0e4fe","checkoutRelative":"<agentDir>/git/127.0.0.1/git/wardrobe-git-fixture","revision":"v1","realClone":true} |
+| fixtures-ready | {"origin":"http://127.0.0.1:65362","gitCommits":{"v1":"97a2c81500f957747a70c4a92c8d8e270688bfa4","v2":"f58a8cdcf08f1a37eab0f7779d243e965b4ddf2f"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
+| inherited-parent-is-reviewed-at-its-own-commit | {"layers":["base@9089cad8658ab59b4b6d7159a63c4385add0ffbb","preset@c4b3039fbf69a6922875937689326df6e3c98923"],"installedBy":"base","loaded":["skills/review/SKILL.md"],"excluded":[{"path":"skills/legacy/SKILL.md","reason":"base layer excluded it","layer":"base","identity":"git:http://127.0.0.1:65362/git/comp-parent.git@9089cad8658ab59b4b6d7159a63c4385add0ffbb#preset.json"}]} |
+| inherited-selectors-keep-their-origin | {"inheritedAndExcluded":["skills/drop/SKILL.md@base","skills/keep/SKILL.md@preset"],"reIncludedBy":"preset"} |
+| overlay-keeps-the-reviewed-revision | {"soft":["persona","thinking"],"requiresNewRevision":false} |
+| explain-traces-layers-without-secrets | {"layers":["preset"],"disabled":["secret_tool:the user or CLI excluded this tool"],"excluded":["skills/b/SKILL.md"],"secretsRendered":false} |
+| overlays-are-soft-only | {"userThinking":"high","userOrigin":"user layer ($FIXTURE_ROOT/agents/primary/wardrobe/user.json)","executableOverlay":"$FIXTURE_ROOT/overlay-with-code.json is not a valid overlay","resourceOverlay":"$FIXTURE_ROOT/overlay-with-resources.json is not a valid overlay"} |
+| absent-selectors-load-none | {"packages":1,"loadSurfaces":0} |
+
+### discovery-review-plan
+
+Generated: 2026-10-10T08:59:00.186Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:65382","gitCommits":{"v1":"0a2978b5ff9fb8a2c1fedc3237421397327cbafa","v2":"07b8cc645a914e3691f11ea4263e62994c5a8678"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
+| git-captured-at-full-commit | {"commit":"03ed47d93a470e6cb4c45573eb94017fc530568d","digest":"4acd0ffd043ac1951b15c41ec9027e657b88ec0648643335017fae1aa0454f2d","installed":false} |
+| preview-names-surfaces-and-artifacts | {"installSurfaces":2,"loadSurfaces":2,"artifacts":4} |
+| self-source-resolves-to-pinned-source | {"resolvesTo":"git:http://127.0.0.1:65382/git/selfsource.git@4f5418d9a4bf18de4be21a99530ed12dd325fc40","commit":"4f5418d9a4bf18de4be21a99530ed12dd325fc40"} |
+| multi-preset-requires-selection | {"candidates":["presets/one/preset.json","presets/two/preset.json"],"selected":"presets/two/preset.json"} |
+| equal-ids-remain-distinct | {"id":"minimal-coding","distinctPlanIds":["205817333e7b27d1","a2dc07f8196e17c8"]} |
+| approval-bound-to-digest | {"approved":"approved","wrongDigestRefused":true,"changedSourceRefused":true} |
+| cancellation-mutates-nothing | {"unchanged":["auth.json","unrelated.txt"],"packagesDeclared":1} |
+| npm-captured-without-execution | {"version":"3.0.0","integrity":"sha512-7SvvAnkecvHYM","lifecycleScriptsRun":0} |
+| floating-ref-refused | {"text":"git source must pin a full commit SHA\n  - /source: \"main\" is not a full 40-character commit SHA. a preset never points at a branch or tag; use the full SHA"} |
+| self-contained-escapes-refused | {"text":"preset.json is not a valid preset declaration\n  - /resources/0/include/0: not a package-relative path: \"../../../etc/passwd\". use a path inside the package, e.g. skills/review/SKILL.md\n  fix the declaration and re-run; nothing was installed or changed"} |
+| self-contained-missing-refused | {"text":"resource path refused\n  - /resources/0/include: path is missing from the captured package: \"skills/absent/SKILL.md\". resources are package-relative paths inside the captured package"} |
+| symlinked-resource-refused | {"diagnostics":"[{\"path\":\"/resources/0/include\",\"reason\":\"path is a symbolic link: \\\"skills/link\\\"\",\"hint\":\"resources are package-relative paths inside the captured package\"}]"} |
+
+### git-lifecycle
+
+Generated: 2026-10-10T08:59:02.573Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:65418","gitCommits":{"v1":"5e8b5a4d40c60c84d5792dc068337b3bc579e390","v2":"61283d611f73e88157716f4009ef75231c99737b"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
+| git-source-addressable | {"v1":"5e8b5a4d40c60c84d5792dc068337b3bc579e390","v2":"61283d611f73e88157716f4009ef75231c99737b"} |
+| git-native-install | {"source":"git:http://127.0.0.1:65418/git/wardrobe-git-fixture.git@5e8b5a4d40c60c84d5792dc068337b3bc579e390","checkoutRelative":"<agentDir>/git/127.0.0.1/git/wardrobe-git-fixture","revision":"v1","realClone":true} |
 | git-ref-collision | {"samePersistentCheckout":true,"revision":"v2","untrackedFileRemoved":true} |
 | git-missing-ref-refused | {"exitCode":1,"priorSettingsRetained":true,"priorCheckoutRetained":true} |
 | git-owned-removal | {"checkoutPath":"<agentDir>/git/127.0.0.1/git/wardrobe-git-fixture","checkoutRemoved":true,"dependencyMarkerRetained":true} |
 
-### npm-lifecycle
+### manager-inspection
 
-Generated: 2026-10-10T03:07:08.546Z — failures: 0
+Generated: 2026-10-10T08:59:08.698Z — failures: 0
 
 | Observation | Detail |
 | --- | --- |
-| fixtures-ready | {"origin":"http://127.0.0.1:65069","gitCommits":{"v1":"42e2460643801146175f8474256691f1f9b3a4eb","v2":"354cb371a6568ac923afcc82643286cb613c6133"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+| fixtures-ready | {"origin":"http://127.0.0.1:65424","gitCommits":{"v1":"f8cc6619ef250d92a4abccc9997d94791e3e1d9c","v2":"2bdb68b4161c87a7a7b09b29db9c8a65da4392a4"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
+| manager-installs-alone | {"declaredSource":"../../../../../../../../Users/superhacker/Codefield/pi-wardrobe/packages/wardrobe","dependencies":0,"installScripts":0,"resources":{"skills":0,"prompts":0,"themes":0}} |
+| wardrobe-command-registered | {"addedCommands":["wardrobe"]} |
+| list-is-read-only | {"preset":"$FIXTURE_ROOT/preset-sources/local#minimal-coding","state":"discovered","installed":false,"active":false,"snapshot":null} |
+| inspection-preserves-personal-state | {"unchanged":["auth.json","unrelated.txt"]} |
+| explain-reports-fields-and-proposals | {"fields":["/schemaVersion:metadata","/id:identity","/name:metadata","/version:metadata","/compatibility:metadata","/compatibility/pi:metadata","/packages:composition","/packages/@scope/tools/source:composition","/packages/@scope/tools/version:composition","/packages/@scope/tools/resource:composition","/resources/@scope/tools:skills:composition","/resources/@scope/tools:skills/loaded/skills/review… |
+| invalid-declaration-refused-not-fatal | {"accepted":["fine"],"rejected":1,"rejection":"$FIXTURE_ROOT/preset-sources/invalid/broken/preset.json is not a valid preset declaration\n  - /credentials: a preset cannot declare credentials; users authenticate through Pi's own flows\n  fix the declaration and re-run; nothing was installed or changed"} |
+| unresolved-alias-refused-only-its-preset | {"listed":["broken-resources","healthy"],"refusal":"resource references an undeclared package\n  - /resources/0/package: package \"@scope/absent\" is not declared in /packages ($FIXTURE_ROOT/preset-sources/missing-resource#broken-resources/preset.json). declared packages: (none) — a preset may only select an alias it or an inherited parent declares"} |
+| ambiguous-short-id-refuses | {"sources":["$FIXTURE_ROOT/preset-sources/first","$FIXTURE_ROOT/preset-sources/second"],"refusal":"minimal-coding is ambiguous: 2 presets share that id\n  - declaration: candidate: $FIXTURE_ROOT/preset-sources/first#minimal-coding\n  - declaration: candidate: $FIXTURE_ROOT/preset-sources/second#minimal-coding\n  qualify the selector with its source, e.g. $FIXTURE_ROOT/preset-sources/first#minimal-… |
+| unknown-subcommand-refuses | {"text":"unknown /wardrobe subcommand \"bogus\"\n  available: list, show, explain, install"} |
+| preferences-remain-proposals | {"unchangedFiles":["auth.json","unrelated.txt"],"theme":"dark","defaultThinkingLevel":"medium","fixtureUserChoice":"preserve-me"} |
+
+### npm-lifecycle
+
+Generated: 2026-10-10T08:59:12.814Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:65430","gitCommits":{"v1":"4284bd7d82cafc872314ee0378a079b7e41647d9","v2":"b42f8c796ab99832f37eeb92f71d53d2450335f9"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
 | npm-native-install | {"source":"npm:wardrobe-fixture@1.0.0","installedVersion":"1.0.0","exitCode":0,"scriptMarkerRecorded":true} |
 | npm-unfiltered-install-declaration | {"declaredSource":["npm:wardrobe-fixture@1.0.0"],"note":"activation happens when a process starts; see rpc-observation"} |
 | npm-installed-inactive-filter | {"preservedFilters":["extensions","skills","prompts","themes"],"extensionLoadsObserved":0,"verifiedInALiveProcess":"test/rpc-observation.test.mjs"} |
@@ -58,16 +110,72 @@ Generated: 2026-10-10T03:07:08.546Z — failures: 0
 | npm-owned-removal | {"packagesRemoved":true,"preferencesPreserved":["defaultThinkingLevel","theme","enableInstallTelemetry","compaction","retry","fixtureUserChoice"],"unrelatedSentinelPreserved":["auth.json","settings.json","unrelated.txt"],"installSideEffectStillPresent":true} |
 | npm-removal-clears-owned-package-directory | {"sentinelRemoved":true} |
 
-### rpc-observation
+### probe3
 
-Generated: 2026-10-10T03:07:12.298Z — failures: 0
+Generated: 2026-10-10T03:39:47.762Z — failures: 0
 
 | Observation | Detail |
 | --- | --- |
-| fixtures-ready | {"origin":"http://127.0.0.1:65077","gitCommits":{"v1":"3a26d422611ce85160a97142fd01a5ebf3fa09f1","v2":"00ded99d6929d5e4a0453107c061451d7d6664c1"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+| fixtures-ready | {"origin":"http://127.0.0.1:51336","gitCommits":{"v1":"8f3de15b9b7fd27baebe02c0833d9551610033fe","v2":"ec771964eecf6d9cd7dfd134782b593907c10d35"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+
+### probe4
+
+Generated: 2026-10-10T03:40:32.313Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:51401","gitCommits":{"v1":"5b82c07e785fdabaeebc573bfc5357affb2d2fcd","v2":"c0d1d60f3413651ac361d8757ef4143ddde1ed91"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+
+### probe5
+
+Generated: 2026-10-10T03:41:22.288Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:51468","gitCommits":{"v1":"60175eed4324fa10c89ddf7dc73dcb645b13c36e","v2":"4630df911643d40b287a2f543a197f34d3dd12ae"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+
+### probe6
+
+Generated: 2026-10-10T03:46:03.934Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:51840","gitCommits":{"v1":"d1e51c6752d0f663a2b0398a55e6e31d10cc6071","v2":"2078a2c6dcb0a6292a959fda22754f4083b8d397"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+
+### probe7
+
+Generated: 2026-10-10T03:47:14.328Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:51927","gitCommits":{"v1":"d6a721bc2107a33a2dc5805d61c5fb9ad5f3736c","v2":"f1946667430e13c10899d2818a30e2de403e19a8"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
+
+### rpc-observation
+
+Generated: 2026-10-10T08:59:16.625Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:65447","gitCommits":{"v1":"a4427889520b038d86c85b9f0a156d998105bce2","v2":"e077dcc510e973d2598c1df8e7faafbf9c7de9de"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
 | unfiltered-install-loads-at-process-start | {"activationRequiresNoFurtherAction":true,"extensionLoads":1} |
 | rpc-resource-registration | {"registeredWhileFiltered":false,"commandAfterActivation":true,"toolAfterActivation":true,"commandAfterDeactivation":false,"toolAfterDeactivation":false,"reloadShutdownObserved":true,"extensionLoads":1,"mode":"offline, no model request"} |
 | rpc-process-shutdown | {"exitCode":0,"inMemoryStateResetPerProcess":true,"activationGovernedByPersistedDeclaration":true,"installScriptEffectsPersist":true} |
+
+### zz-debug-04
+
+Generated: 2026-10-10T08:16:42.773Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:61550","gitCommits":{"v1":"9d4c76c18c7915a9d431e94de930c31b73bcabc0","v2":"c7ef4b93f70aee7b9c3431dc2fa39822d64029b5"},"npmVersions":["1.0.0","2.0.0","3.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules… |
+
+### zz-debug
+
+Generated: 2026-10-10T03:47:40.773Z — failures: 0
+
+| Observation | Detail |
+| --- | --- |
+| fixtures-ready | {"origin":"http://127.0.0.1:51972","gitCommits":{"v1":"9804a180b0bbec276363b9e79563524f6321c3d1","v2":"416a0d1166fdefbd297b28b6b438c085e31f7b1c"},"npmVersions":["1.0.0","2.0.0"],"agents":["baseline","primary","second"],"runtime":{"pi":"1.1.0","node":"v26.5.0","npm":"11.17.0","platform":"darwin","arch":"arm64","piRuntimeRoot":"/Users/superhacker/.pi/agent/install/releases/1.1.0/node_modules/@earend… |
 
 ## Not claimed by this evidence
 
