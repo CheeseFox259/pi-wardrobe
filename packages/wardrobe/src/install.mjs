@@ -13,12 +13,14 @@
 // otherwise.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { execPath } from "node:process";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { parseSource } from "./identity.mjs";
 import { git, run } from "./proc.mjs";
 import { digestMatches } from "./plan.mjs";
+import { diagnoseRevision } from "./doctor.mjs";
+import { measureRevision, piCliOf } from "./lock.mjs";
 import { resolveNpmPackage } from "./npm-source.mjs";
 import { StagingStore, inactiveSettings, residualOf } from "./staging.mjs";
 
@@ -36,10 +38,29 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
 
   const store = new StagingStore(agentDir);
   const existing = store.read(plan.planId);
-  if (existing?.state === "available" && existing.digest === plan.digest) {
-    // An available revision is never reinstalled into place: its directory is
-    // what other work may already refer to.
-    return { state: "available", record: existing, attempt: null, alreadyAvailable: true };
+  const previous = existing?.attempts?.at(-1) ?? null;
+  let superseded = null;
+  // An available revision is never reinstalled into place: its directory is
+  // what other work may already refer to. But it is checked, not believed: a
+  // record's directory can be gone, or can have drifted since the install, and
+  // in both cases it is no longer the revision the approval was given for.
+  // Only a revision that still measures as the approved one is handed back.
+  if (
+    existing?.state === "available" &&
+    existing.digest === plan.digest &&
+    previous?.agentDir &&
+    existsSync(previous.agentDir)
+  ) {
+    const verified = await diagnoseRevision(existing, { env, plan });
+    if (verified.state === "available") {
+      return { state: "available", record: existing, attempt: null, alreadyAvailable: true };
+    }
+    superseded = {
+      attempt: previous.attempt,
+      state: verified.state,
+      drift: verified.drift.length,
+      unverified: verified.unverified.length,
+    };
   }
 
   const surfaces = plan.installationSurfaces.map((surface) => ({
@@ -80,7 +101,12 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
   const inventory = failure ? null : await inventoryOf(attemptDir, { plan, env });
   const reasserted = failure ? null : assertInactive(attemptDir, surfaces);
   const mismatch = inventory?.mismatch ?? [];
-  const available = !failure && mismatch.length === 0;
+  // The lock is measured from what is on disk, not from what was asked for: a
+  // revision is only available when the tree that exists can be described by
+  // the same configuration, resources, code and baseline the approval named.
+  const measured = inventory ? await measureRevision({ plan, attemptDir, inventory: inventory.packages, env }) : null;
+  const problems = measured?.problems ?? [];
+  const available = !failure && mismatch.length === 0 && problems.length === 0;
 
   const record = store.write({
     planId: plan.planId,
@@ -90,8 +116,14 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
     source: plan.source,
     createdAt: existing?.createdAt ?? startedAt,
     state: available ? "available" : "failed",
-    // A retained failed attempt is reported, never described as undone.
-    previousAttemptsRetained: existing?.attempts?.map((entry) => entry.attempt) ?? [],
+    // A retained failed attempt is reported, never described as undone. Only
+    // attempts whose files are still there are called retained.
+    previousAttemptsRetained: (existing?.attempts ?? [])
+      .filter((entry) => existsSync(entry.agentDir))
+      .map((entry) => entry.attempt),
+    // Why the previous attempt was not reused, when it was not reused because
+    // it no longer holds. `null` when it was reused or when there was none.
+    superseded,
     attempts: [
       ...(existing?.attempts ?? []),
       {
@@ -118,9 +150,16 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
           filters: reasserted ?? null,
         },
         mismatch,
+        // Measured after installation, from the tree itself. `null` for an
+        // attempt that did not install, because there is nothing to describe.
+        lock: measured?.lock ?? null,
         failure:
           failure ??
-          (mismatch.length ? { message: "installed artifact does not match the approved plan" } : null),
+          (mismatch.length
+            ? { message: "installed artifact does not match the approved plan" }
+            : problems.length
+              ? { message: "the installed revision could not be fully measured" }
+              : null),
         // Anything an unsuccessful attempt left behind is reported, whether it
         // failed as a process or failed verification.
         residual: available ? [] : residualOf(attemptDir),
@@ -149,6 +188,12 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
             new WardrobeDiagnostic({
               path: `/installationSurfaces/${entry.alias}`,
               reason: `installed artifact does not match the approved plan: ${entry.detail}`,
+            })
+          ),
+          ...problems.map((problem) =>
+            new WardrobeDiagnostic({
+              path: `/lock${problem.path}`,
+              reason: `an available revision needs a complete lock: ${problem.reason}`,
             })
           ),
           new WardrobeDiagnostic({
@@ -298,19 +343,20 @@ async function runPiInstall(source, { attemptDir, env }) {
 }
 
 /**
- * The Pi executable this manager is running inside.
+ * The Pi executable this manager is running inside, or a refusal that says
+ * what is missing.
  *
- * `argv[1]` is the CLI Pi itself was started from, which is the same executable
- * and version that must own the install. An explicit override exists for a
- * caller that starts the manager some other way.
+ * The lookup itself lives with the lock, because the lock has to identify the
+ * same build: a revision verified by one Pi and installed by another is not a
+ * verified revision.
  */
 function piCli(env) {
-  const cli = env.WARDROBE_PI_CLI || process.argv[1];
-  if (!cli || !existsSync(cli)) {
+  const cli = piCliOf(env);
+  if (!cli) {
     throw WardrobeError.from("cannot locate the Pi executable", [
       new WardrobeDiagnostic({
         path: "",
-        reason: `expected a Pi CLI at ${cli ?? "(none)"}`,
+        reason: `no Pi CLI at ${env.WARDROBE_PI_CLI ?? process.argv[1] ?? "(none)"}`,
         hint: "set WARDROBE_PI_CLI to the Pi entry point Wardrobe should install through",
       }),
     ]);
@@ -346,6 +392,9 @@ async function inventoryOf(attemptDir, { plan, env }) {
       alias: surface.alias,
       source,
       installedPath: entry.path,
+      // Recorded relative to the attempt directory so a moved or copied
+      // revision is measured inside itself, not through a stale absolute path.
+      installedRelative: relative(attemptDir, entry.path).split(sep).join("/"),
       filtered: entry.filtered,
       identity,
     });

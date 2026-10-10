@@ -69,6 +69,27 @@ ${exitCode ? `process.exit(${exitCode});` : ""}
 `;
 }
 
+/**
+ * A skill the fixture ships, so a preset that selects one selects something
+ * that really exists.
+ *
+ * The package declares the skill in its manifest, which is what makes the
+ * selection real rather than aspirational: a selected resource that the
+ * installed package does not carry cannot be hashed, and the revision lock
+ * reports that instead of pretending it loaded.
+ */
+export function skillSource() {
+  return `---
+name: fixture-review
+description: Controlled no-op skill used to observe skill loading.
+---
+
+# Fixture review
+
+A skill that does nothing, shipped so a preset can select a real one.
+`;
+}
+
 /** Write a fixture package directory and return its path. */
 export function writeFixturePackage(
   dir,
@@ -80,7 +101,7 @@ export function writeFixturePackage(
     type: "module",
     private: true,
     scripts: { postinstall: "node postinstall.mjs" },
-    pi: { extensions: ["extension.mjs"] },
+    pi: { extensions: ["extension.mjs"], skills: ["skills/review/SKILL.md"] },
   };
   writeFileSync(join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(
@@ -88,6 +109,8 @@ export function writeFixturePackage(
     postinstallSource({ markerLog, source, exitCode })
   );
   writeFileSync(join(dir, "extension.mjs"), extensionSource({ eventsLog: extensionLog }));
+  ensureDir(join(dir, "skills", "review"));
+  writeFileSync(join(dir, "skills", "review", "SKILL.md"), skillSource());
   for (const [file, contents] of Object.entries(extraFiles ?? {})) {
     const target = join(dir, file);
     ensureDir(dirname(target));

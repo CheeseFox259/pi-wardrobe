@@ -15,7 +15,18 @@ The Wardrobe preset manager for Pi. It registers exactly one command,
 | `/wardrobe explain <preset> --model <provider/id>` | Records an explicit model choice, which wins over any declared preference |
 | `/wardrobe install <source>` | Discovers the source and produces an immutable review plan. Installs nothing |
 | `/wardrobe install <source> --preset <path>` | Explicit selection when a source declares more than one preset |
-| `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive. A different digest is refused and installs nothing |
+| `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive, and measures its lock. A different digest is refused and installs nothing |
+| `/wardrobe status [revision]` | Every installed revision, one line each: the state the install recorded beside the state measured now. No selector means the whole store |
+| `/wardrobe doctor [revision]` | The full diagnosis per revision: configuration, selected-resource content, installed code, baseline and declared runtime data, with every difference named |
+
+`list`, `show`, `explain` and `status` also report installed revisions, so the
+declared shape of a preset and the state of any revision built from it are
+never merged into one claim. `show` and `explain` match on the source-qualified
+identity of the declaration they were asked about: a local declaration that
+shares an id with an installed revision reports no revision of its own rather
+than borrowing another source's state. A revision addresses by its revision id, its source-qualified
+identity (`git:…@<sha>#<id>`), or its preset name; an ambiguous name is
+refused with the ids that do exist rather than resolved to a guess.
 
 ## Composition and provenance
 
@@ -81,6 +92,58 @@ package roots.
   ships the declaration. A local snapshot with no pinned native source is
   refused, because Pi does not install a local package's dependencies and the
   approved artifacts would otherwise not be what is installed.
+
+## Revision locks and drift
+
+An installed revision is measured, not trusted. Immediately after installation
+the manager derives a lock from the files that are actually on disk, and an
+install is only reported `available` when that measurement is complete.
+
+| Part of the lock | What it covers |
+| --- | --- |
+| `configuration` | A canonical digest of the approved effective configuration: identity, exact sources, resource selection, runtime and persona. No timestamps, no machine paths, no secrets |
+| `resources` | One SHA-256 per selected resource file, resolved through Pi's own inventory |
+| `code` | A fingerprint of every installed package tree under `npm/` and `git/`, plus a digest per package and per installer-metadata root |
+| `baseline` | The Pi, Node, npm and platform the revision was measured on. An unidentified Pi build or an unreadable npm version is a measurement problem, so the install is not reported available |
+| `runtimeData` | The declared mutable roots (`sessions/`, `wardrobe/`). Listed, never hashed, and always outside the locked code roots |
+
+Fingerprints deliberately omit Git's own directories — they move on their own
+and say nothing about installed code — and credential files, which are not code
+and must never reach a reported fingerprint. A directory that is never read is
+reported as skipped rather than silently dropped.
+
+`/wardrobe doctor` re-measures and reports one of five states, none of which is
+a softer version of "fine":
+
+| State | Meaning |
+| --- | --- |
+| `available` | Every measurement still matches the lock |
+| `drifted` | Measured, and no longer matching. Refused |
+| `unverified` | This host cannot vouch for it: a different toolchain or platform, an unsupported declared range, or a measurement that could not be completed |
+| `failed` | The install attempt failed and was retained as failed, with its residual files |
+| `missing` | The revision's directory is gone |
+
+Re-running an approved install re-measures the revision it would reuse. One
+that still matches its lock is handed back untouched; one that has drifted is
+replaced by a fresh attempt in a new directory, and the record says which
+attempt it replaced and why. The drifted directory is left exactly as it was.
+
+A drifted or missing revision is never quietly re-labelled as the approved one.
+There is no path that rebuilds the tree and calls the result the same revision:
+a different tree is a different tree, and adopting it means approving a new
+plan. A record whose directory has disappeared is installed again into a new
+attempt rather than handed back as the revision it no longer is.
+
+A declaration's `compatibility.pi` range and its optional `platforms` list are
+checked against the observed baseline. A range that cannot be resolved and a
+Pi build that cannot be identified are both reported as unanswerable, never as
+satisfied.
+
+Intended configuration and observed state are always reported side by side, so
+a record that still says `available` after the installed tree changed appears
+as exactly that. The state is the whole claim — there is no separate health
+boolean to soften it. `launchable` is reported as `false` throughout: whether a
+process can start against a revision is a separate, verified step.
 
 ## Discovery and the review plan
 
@@ -196,6 +259,9 @@ npm test
   reviewed through real Git and npm sources
 - `test/staged-inactive-install.test.mjs` — approving a plan and installing it
   through Pi into owned staging, with every resource inactive
+- `test/revision-lock-doctor.test.mjs` — measuring installed revisions, the
+  exclusions a fingerprint makes, and drift, baseline, compatibility and
+  missing-revision diagnoses
 
 Tracked by
-[issue #13](https://github.com/CheeseFox259/pi-wardrobe/issues/13).
+[issue #14](https://github.com/CheeseFox259/pi-wardrobe/issues/14).

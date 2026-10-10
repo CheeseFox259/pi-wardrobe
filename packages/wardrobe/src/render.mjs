@@ -3,6 +3,7 @@
 // Kept separate from the command logic so the machine-readable result and the
 // human-readable text are derived from the same object.
 
+import { STATES } from "./doctor.mjs";
 import { identityKey } from "./identity.mjs";
 
 /** Render a successful command result. Failures carry their own `text`. */
@@ -16,13 +17,17 @@ export function renderResult(result) {
       return renderExplain(result);
     case "install":
       return renderPlan(result);
+    case "status":
+      return renderStatus(result);
+    case "doctor":
+      return renderDoctor(result);
     default:
       return `${result.command}: done`;
   }
 }
 
 function renderList(result) {
-  const lines = ["Wardrobe presets (discovered, none installed, none active):"];
+  const lines = ["Wardrobe presets (discovered), and the revisions installed here:"];
   if (result.presets.length === 0) lines.push("  (none found)");
   for (const preset of result.presets) {
     const captured = preset.snapshot ? `snapshot ${preset.snapshot.capturedAt}` : "no snapshot";
@@ -33,8 +38,35 @@ function renderList(result) {
   for (const rejection of result.rejected) {
     lines.push(`  rejected: ${rejection.text}`);
   }
-  lines.push(`  installed: ${result.installed}  active: ${result.active}`);
+  lines.push(...revisionLines(result.revisions));
+  for (const entry of result.unreadable ?? []) {
+    lines.push(`  unreadable revision record: ${entry.file} — ${entry.reason}`);
+  }
+  lines.push(`  installed in your own environment: ${result.installed}  active: ${result.active}`);
   return lines.join("\n");
+}
+
+/**
+ * Installed revisions, one line each.
+ *
+ * The recorded state and the observed state are both printed. They are usually
+ * the same, and when they are not, that difference is the whole answer.
+ */
+function revisionLines(revisions, { indent = "  " } = {}) {
+  if (!revisions) return [];
+  if (revisions.length === 0) return [`${indent}installed revisions: (none)`];
+  const lines = [`${indent}installed revisions:`];
+  for (const revision of revisions) {
+    const preset = `${revision.preset.name ?? "?"} ${revision.preset.version ?? ""}`.trim();
+    const recorded = revision.recorded === revision.state ? "" : ` (recorded ${revision.recorded})`;
+    lines.push(
+      `${indent}  ${revision.revision}  ${preset}  ${revision.state}${recorded}` +
+        (revision.lock ? `  lock ${revision.lock.slice(0, 16)}` : "  no lock") +
+        (revision.drift ? `  drift ${revision.drift}` : "") +
+        (revision.unverified ? `  unverified ${revision.unverified}` : "")
+    );
+  }
+  return lines;
 }
 
 function renderShow(result) {
@@ -55,6 +87,7 @@ function renderShow(result) {
   );
   lines.push(...renderLayers(result.layers));
   lines.push(`  state: ${preset.state}  installed: ${result.installed}  active: ${result.active}`);
+  if (result.revisions) lines.push(...revisionLines(result.revisions));
   return lines.join("\n");
 }
 
@@ -118,6 +151,90 @@ function renderPlan(result) {
 }
 
 /**
+ * The intended configuration beside the observed state.
+ *
+ * Nothing here is a promise that the revision will run: `launchable` is
+ * reported as what it always is until a launch is actually verified.
+ */
+function renderStatus(result) {
+  const lines = [`Wardrobe revisions (state: ${result.state})`];
+  if (result.selected) {
+    lines.push(
+      `  selected: ${result.selected.revision}  ${result.selected.state}` +
+        (result.selected.lock ? `  lock ${result.selected.lock.slice(0, 16)}` : "")
+    );
+  }
+  lines.push(...revisionLines(result.revisions));
+  for (const entry of result.unreadable ?? []) {
+    lines.push(`  unreadable revision record: ${entry.file} — ${entry.reason}`);
+  }
+  lines.push(
+    "  intended: the approved configuration;  observed: what is on disk now;  launchable: false (a launch is a separate, verified step)"
+  );
+  return lines.join("\n");
+}
+
+/** The full diagnosis, component by component. */
+function renderDoctor(result) {
+  const lines = [`Wardrobe doctor (state: ${result.state})`];
+  for (const revision of result.revisions) lines.push(...renderDiagnosis(revision));
+  for (const entry of result.unreadable ?? []) {
+    lines.push(`  unreadable revision record: ${entry.file} — ${entry.reason}`);
+  }
+  if (result.revisions.length === 0) lines.push("  (no revisions are installed here)");
+  return lines.join("\n");
+}
+
+function renderDiagnosis(revision) {
+  const lines = [
+    `  revision ${revision.revision}  ${revision.preset.name ?? "?"} ${revision.preset.version ?? ""}`,
+    `    state: ${revision.state} — ${revision.detail ?? STATES[revision.state] ?? ""}`,
+  ];
+  if (revision.recorded !== revision.state) {
+    lines.push(`    recorded by the install as: ${revision.recorded}`);
+  }
+  if (revision.lock) {
+    const baseline = revision.lock.baseline ?? {};
+    lines.push(`    lock ${revision.lock.digest.slice(0, 16)} (schema ${revision.lock.schemaVersion})`);
+    lines.push(`      configuration ${revision.lock.configuration.digest.slice(0, 16)}`);
+    lines.push(
+      `      code ${short(revision.lock.code.digest)}  ${revision.lock.code.files} file(s), ${revision.lock.code.bytes} byte(s)` +
+        `  ${revision.lock.code.excludedCount} excluded`
+    );
+    for (const [group, digest] of Object.entries(revision.lock.code.packages ?? {})) {
+      lines.push(`        ${group} ${short(digest)}`);
+    }
+    lines.push(
+      `      baseline pi ${baseline.pi ?? "unknown"}  node ${baseline.node ?? "unknown"}  npm ${baseline.npm ?? "unknown"}  ${baseline.platform ?? "?"}/${baseline.arch ?? "?"}`
+    );
+    for (const resource of revision.lock.resources) {
+      lines.push(`      resource ${resource.package}/${resource.kind}/${resource.path}  ${resource.sha256.slice(0, 16)}`);
+    }
+  } else {
+    lines.push("    lock: none recorded, so this revision cannot be verified");
+  }
+  for (const entry of revision.drift ?? []) {
+    lines.push(`    drift [${entry.component}] ${entry.path}: ${entry.detail}`);
+  }
+  for (const entry of revision.unverified ?? []) {
+    lines.push(`    unverified [${entry.component}]: ${entry.reason}`);
+  }
+  if (revision.runtimeData?.length) {
+    lines.push(`    runtime data (not locked code): ${revision.runtimeData.join(", ")}`);
+  }
+  if (revision.failure) {
+    lines.push(`    retained failure: ${revision.failure.message}`);
+    lines.push(`      residual files kept: ${(revision.residual ?? []).length} (nothing was rolled back)`);
+  }
+  lines.push(`    launchable: ${revision.launchable}`);
+  return lines;
+}
+
+function short(digest) {
+  return digest ? digest.slice(0, 16) : "(none)";
+}
+
+/**
  * What staging holds.
  *
  * The inventory is deliberately separate from launch availability: a staged
@@ -127,7 +244,13 @@ function renderPlan(result) {
 function renderStaging(staging) {
   const lines = [`  staged revision ${staging.revision} (${staging.state}), attempt ${staging.attempt}`];
   if (staging.alreadyAvailable) {
-    lines.push("    this revision was already staged; nothing was reinstalled in place");
+    lines.push("    this revision was already staged and still matches its lock; nothing was reinstalled in place");
+  }
+  if (staging.superseded) {
+    lines.push(
+      `    attempt ${staging.superseded.attempt} was replaced, not reused: it measured ${staging.superseded.state}` +
+        ` (${staging.superseded.drift} drift, ${staging.superseded.unverified} unverified)`
+    );
   }
   lines.push(`    agent dir: ${staging.agentDir}`);
   for (const entry of staging.installed) {
@@ -136,6 +259,9 @@ function renderStaging(staging) {
     );
   }
   lines.push(`    resources active: ${staging.resourcesActive}`);
+  if (staging.lockDigest) {
+    lines.push(`    lock: ${staging.lockDigest.slice(0, 16)} (measured from the installed tree)`);
+  }
   if (staging.previousAttemptsRetained.length > 0) {
     lines.push(
       `    earlier attempts retained: ${staging.previousAttemptsRetained.join(", ")} — their files are still on disk and were not rolled back`

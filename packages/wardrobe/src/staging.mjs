@@ -11,7 +11,8 @@
 // runs package scripts and leaves whatever they left.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { basename, join, relative, sep } from "node:path";
+import { lockDigestOf } from "./lock.mjs";
 
 /** Files a fresh staging directory starts with. */
 export function inactiveSettings(declarations) {
@@ -43,6 +44,30 @@ export class StagingStore {
     const path = this.#recordPath(planId);
     if (!existsSync(path)) return null;
     return JSON.parse(readFileSync(path, "utf8"));
+  }
+
+  /**
+   * Every record this store holds, in revision order.
+   *
+   * A record that cannot be read is named rather than skipped: a store whose
+   * contents cannot all be listed cannot be reported as the full picture.
+   */
+  list() {
+    if (!existsSync(this.root)) return { records: [], unreadable: [] };
+    const records = [];
+    const unreadable = [];
+    for (const entry of readdirSync(this.root).sort()) {
+      if (!entry.endsWith(".json")) continue;
+      const path = join(this.root, entry);
+      try {
+        const record = JSON.parse(readFileSync(path, "utf8"));
+        if (record?.planId === basename(entry, ".json")) records.push(record);
+        else unreadable.push({ file: entry, reason: "the record does not name its own revision" });
+      } catch (error) {
+        unreadable.push({ file: entry, reason: `unreadable record: ${error.message}` });
+      }
+    }
+    return { records, unreadable };
   }
 
   write(record) {
@@ -84,7 +109,13 @@ export function stagingViewOf(record, { selected = null, alreadyAvailable = fals
     attempt: latest?.attempt ?? null,
     alreadyAvailable: alreadyAvailable === true,
     previousAttemptsRetained: record.previousAttemptsRetained,
+    // Set when the previous attempt was replaced rather than reused, and why.
+    superseded: record.superseded ?? null,
     installed: latest?.installed ?? [],
+    // The lock is what makes this revision checkable later; the inventory
+    // above is not, on its own, evidence that anything is intact.
+    lock: latest?.lock ?? null,
+    lockDigest: latest?.lock ? lockDigestOf(latest.lock) : null,
     resourcesActive: latest?.resources?.active ?? 0,
     residual: latest?.residual ?? [],
     rolledBack: latest?.rolledBack ?? false,

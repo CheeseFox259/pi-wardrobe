@@ -11,7 +11,7 @@ export const RESULT_TYPE = "wardrobe.result";
 
 export default function (pi) {
   pi.registerCommand("wardrobe", {
-    description: "Inspect Wardrobe presets: list, show, explain, install",
+    description: "Inspect Wardrobe presets and revisions: list, show, explain, install, status, doctor",
     handler: async (args, ctx) => {
       const entry = withText(await runCommand(args));
       ctx.ui.notify(entry.text, entry.ok ? "info" : "error");

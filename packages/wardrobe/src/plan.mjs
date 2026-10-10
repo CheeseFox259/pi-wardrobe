@@ -59,6 +59,10 @@ export function buildPlan({
       name: definition.name,
       version: definition.version,
       schemaVersion: definition.schemaVersion,
+      // The declared compatibility range is part of what a revision *is*: it
+      // says which Pi builds the approved environment may run on, so it belongs
+      // in the plan and in the configuration the revision lock covers.
+      compatibility: definition.compatibility ?? null,
     },
     source,
     layers: [...(layers ?? [])].map(describe),

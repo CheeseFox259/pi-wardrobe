@@ -11,16 +11,18 @@
 import { PlanStore } from "./approval.mjs";
 import { join } from "node:path";
 import { WardrobeDiagnostic, describeFailure, WardrobeError } from "./diagnostics.mjs";
+import { oneLine } from "./doctor.mjs";
 import { resolveSelector } from "./identity.mjs";
 import { readOverlay, readUserOverlay } from "./overlay.mjs";
 import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
 import { installApprovedPlan } from "./install.mjs";
+import { diagnoseAll, diagnosePreset, selectRevision } from "./revisions.mjs";
 import { stagingViewOf } from "./staging.mjs";
 import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
-const COMMANDS = ["list", "show", "explain", "install"];
+const COMMANDS = ["list", "show", "explain", "install", "status", "doctor"];
 
 const FIELD_KINDS = {
   schemaVersion: "metadata",
@@ -115,11 +117,22 @@ export async function runCommand(input, { env = process.env } = {}) {
       }
     }
 
+    // `status` and `doctor` answer about installed revisions, not about
+    // declarations: a preset that is not discovered locally still has a
+    // revision, and its state must be reportable either way. Awaited inside
+    // the try, so a refused selector is reported rather than thrown.
+    if (command === "status") {
+      return await status(command, positional.join(" "), { dir, env });
+    }
+    if (command === "doctor") {
+      return await doctor(command, positional.join(" "), { dir, env });
+    }
+
     const store = new PresetStore(dir);
     const { presets, rejected } = discover(sourceDirs(dir, env));
 
     if (command === "list") {
-      return list(command, store, presets, rejected);
+      return await list(command, store, presets, rejected, { dir, env });
     }
 
     const selector = positional.join(" ");
@@ -139,10 +152,19 @@ export async function runCommand(input, { env = process.env } = {}) {
     // Inspecting a preset is what captures it.
     const snapshotDir = store.write(resolved.preset, resolved.preset.definition);
     const composed = await composition(resolved.preset, flags, { dir, env });
+    // A preset's declared shape and the state of any revision built from it
+    // are different facts; both are reported, neither is inferred from the
+    // other.
+    const { reports } = await diagnosePreset(
+      dir,
+      `${resolved.preset.source}#${resolved.preset.id}`,
+      { env }
+    );
     return success(command, {
       preset: { ...resolved.preset, state: "discovered", snapshotDir },
       definition: resolved.preset.definition,
       ...view(composed),
+      revisions: reports.map(oneLine),
     });
   } catch (error) {
     return failure(command, error);
@@ -352,7 +374,48 @@ async function install(command, source, flags, { dir, env }) {
   });
 }
 
-function list(command, store, presets, rejected) {
+/**
+ * Every installed revision, one line each, in stored order.
+ *
+ * Intended configuration is reported next to observed state, and the two are
+ * never merged: a record that says `available` while the measurement says
+ * `drifted` is reported as exactly that.
+ */
+async function status(command, selector, { dir, env }) {
+  const { reports, unreadable } = await diagnoseAll(dir, { env });
+  const selected = selector ? selectRevision(reports, selector, { unreadable }) : null;
+  return success(command, {
+    state: selected?.state ?? reportsSummary(reports),
+    selected: selected ? oneLine(selected) : null,
+    revisions: reports.map(oneLine),
+    unreadable,
+  });
+}
+
+/** The full diagnosis for one revision, or for every revision. */
+async function doctor(command, selector, { dir, env }) {
+  const { reports, unreadable } = await diagnoseAll(dir, { env });
+  const selected = selector ? selectRevision(reports, selector, { unreadable }) : reports;
+  const chosen = Array.isArray(selected) ? selected : [selected];
+  return success(command, {
+    state: reportsSummary(chosen),
+    revisions: chosen,
+    unreadable,
+  });
+}
+
+/** The most serious state present, named plainly. */
+function reportsSummary(reports) {
+  if (reports.length === 0) return "none-installed";
+  const states = reports.map((report) => report.state);
+  for (const state of ["drifted", "failed", "missing", "unverified"]) {
+    if (states.includes(state)) return state;
+  }
+  return "available";
+}
+
+async function list(command, store, presets, rejected, { dir, env }) {
+  const { reports, unreadable } = await diagnoseAll(dir, { env });
   return {
     ok: true,
     command,
@@ -370,6 +433,10 @@ function list(command, store, presets, rejected) {
       // Rejections are flattened to plain data: this result is appended to the
       // session and must survive serialization.
       rejected: rejected.map(serialiseRejection),
+      // Revisions are measured, not assumed: this list reports what is
+      // installed here and what state each one is actually in.
+      revisions: reports.map(oneLine),
+      unreadable,
       installed: false,
       active: false,
     },
