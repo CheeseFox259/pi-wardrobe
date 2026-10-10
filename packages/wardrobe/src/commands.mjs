@@ -1,8 +1,9 @@
 // /wardrobe command dispatch.
 //
-// Ticket 02 delivers inspection only: `list`, `show` and `explain`. Every
-// result states plainly that nothing is installed and nothing is active, and
-// that declared model/thinking/tool preferences are proposals.
+// `list`, `show` and `explain` inspect; `install` reviews and, once the exact
+// plan the user saw is approved, installs it into owned staging. Every result
+// states plainly what is installed, what is active and what is only a
+// proposal, and nothing outside this manager's own directories is written.
 //
 // `list` is read-only: it discovers and validates, and reports whether a
 // snapshot already exists. Capturing happens when a preset is inspected.
@@ -11,9 +12,10 @@ import { PlanStore } from "./approval.mjs";
 import { join } from "node:path";
 import { WardrobeDiagnostic, describeFailure, WardrobeError } from "./diagnostics.mjs";
 import { resolveSelector } from "./identity.mjs";
+import { readOverlay, readUserOverlay } from "./overlay.mjs";
 import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
-import { planFor } from "./review.mjs";
+import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
 const COMMANDS = ["list", "show", "explain", "install"];
@@ -32,6 +34,9 @@ const FIELD_KINDS = {
   runtime: "preference",
   persona: "content",
 };
+
+/** Metadata a declaration describes about itself. */
+const DECLARED_FIELDS = ["schemaVersion", "id", "name", "version", "description", "author", "compatibility"];
 
 /** Resolve the agent directory Pi gave this process. */
 function agentDir(env) {
@@ -120,23 +125,102 @@ export async function runCommand(input, { env = process.env } = {}) {
 
     // Inspecting a preset is what captures it.
     const snapshotDir = store.write(resolved.preset, resolved.preset.definition);
-    return {
-      ok: true,
-      command,
-      result: {
-        ok: true,
-        command,
-        preset: { ...resolved.preset, state: "discovered", snapshotDir },
-        definition: resolved.preset.definition,
-        installed: false,
-        active: false,
-        fields: command === "explain" ? explainFields(resolved.preset) : [],
-        proposals: command === "explain" ? proposals(resolved.preset.definition) : [],
-      },
-    };
+    const composed = await composition(resolved.preset, flags, { dir, env });
+    return success(command, {
+      preset: { ...resolved.preset, state: "discovered", snapshotDir },
+      definition: resolved.preset.definition,
+      ...view(composed),
+    });
   } catch (error) {
     return failure(command, error);
   }
+}
+
+/**
+ * Compose a discovered preset the way the user asked to see it.
+ *
+ * A locally discovered declaration is presented as the capture composition
+ * expects, so inheritance from a reviewed remote source resolves through the
+ * same code path an installed one does.
+ */
+async function composition(preset, flags, { dir, env }) {
+  const capture = {
+    kind: "local",
+    locator: preset.source,
+    root: preset.source,
+    treeDigest: null,
+    presets: [preset],
+  };
+  const overlays = [readUserOverlay(dir)];
+  const sessionPath = flags.get("overlay");
+  if (typeof sessionPath === "string") overlays.push(readOverlay(sessionPath, "session"));
+
+  return composeFor({
+    captured: capture,
+    preset,
+    workDir: join(dir, "wardrobe", "captures"),
+    registry: env.WARDROBE_REGISTRY,
+    env,
+    overlays: overlays.filter(Boolean),
+    restrictions: restrictionsOf(flags),
+  });
+}
+
+/**
+ * Choices a preset may not override: CLI exclusions, the user's authorization
+ * boundary, and an explicit user/CLI model choice.
+ */
+function restrictionsOf(flags) {
+  const disabledTools = flags.get("disable-tool");
+  const model = flags.get("model");
+  return {
+    disabledTools:
+      typeof disabledTools === "string"
+        ? disabledTools
+            .split(",")
+            .map((name) => name.trim())
+            .filter(Boolean)
+        : [],
+    model: typeof model === "string" ? model : null,
+  };
+}
+
+/** The described environment every inspecting command reports. */
+function view({ layers, composed, executable, change }) {
+  return {
+    layers: layers.map((layer) => ({
+      kind: layer.kind,
+      identity: layer.identity,
+      source: layer.captured?.locator ?? null,
+      revision: layer.captured?.commit ?? layer.captured?.version ?? null,
+    })),
+    packages: composed.packages,
+    resources: composed.resources.map(publicSelector),
+    runtime: composed.runtime,
+    persona: composed.persona,
+    disabled: composed.runtime.tools.disabled,
+    unmet: composed.runtime.tools.unmet,
+    executable,
+    // What the overlays changed. Soft by construction, so this is reported to
+    // show that an overlay did not quietly require a new reviewed revision.
+    revision: change,
+    fields: composedFields(composed, layers),
+    proposals: proposals(composed),
+  };
+}
+
+/** The part of a folded selector a result carries; internal folds stay out. */
+function publicSelector(selector) {
+  return {
+    package: selector.package,
+    kind: selector.kind,
+    generic: selector.generic,
+    include: selector.include,
+    exclude: selector.exclude,
+    loaded: selector.loaded,
+    excluded: selector.excluded,
+    origins: selector.origins,
+  };
 }
 
 /**
@@ -202,7 +286,15 @@ async function install(command, source, flags, { dir, env }) {
     );
   }
 
-  const sealed = await planFor({ captured, preset, registry: env.WARDROBE_REGISTRY, env });
+  const userOverlay = readUserOverlay(dir);
+  const sealed = await planFor({
+    captured,
+    preset,
+    workDir: join(dir, "wardrobe", "captures"),
+    registry: env.WARDROBE_REGISTRY,
+    env,
+    overlays: userOverlay ? [userOverlay] : [],
+  });
   const quoted = typeof flags.get("confirm") === "string" ? flags.get("confirm") : null;
   let state = "awaiting-approval";
   let approved = null;
@@ -227,19 +319,11 @@ async function install(command, source, flags, { dir, env }) {
   }
   plans.save(sealed);
 
-  return {
-    ok: true,
-    command,
-    result: {
-      ok: true,
-      command,
-      state,
-      plan: sealed,
-      approvedAt: approved?.approved?.at ?? null,
-      installed: false,
-      active: false,
-    },
-  };
+  return success(command, {
+    state,
+    plan: sealed,
+    approvedAt: approved?.approved?.at ?? null,
+  });
 }
 
 function list(command, store, presets, rejected) {
@@ -267,18 +351,122 @@ function list(command, store, presets, rejected) {
 }
 
 /**
- * Every declared path with its origin, including nested leaves.
+ * Every composed value with the layer it came from.
  *
- * Containers are marked so a renderer can show the leaves; the structured
- * result keeps everything.
+ * Metadata describes the declaration itself; every other value names the layer
+ * that contributed it, because "high" means nothing without knowing who asked
+ * for it and which revision that was.
  */
-function explainFields(preset) {
-  const origin = `preset definition captured from ${preset.capturedFrom}`;
+function composedFields(composed, layers) {
+  // The preset layer is the declaration a user asked about; a user or session
+  // overlay sits above it and must not be mistaken for it.
+  const declaration = layers.find((layer) => layer.kind === "preset") ?? layers.at(-1);
+  const origin = `preset definition captured from ${declaration.preset?.capturedFrom ?? declaration.identity}`;
   const out = [];
-  for (const [key, value] of Object.entries(preset.definition)) {
-    walkField(value, `/${key}`, FIELD_KINDS[key] ?? "metadata", origin, out);
+  for (const key of DECLARED_FIELDS) {
+    if (declaration.definition[key] === undefined) continue;
+    walkField(declaration.definition[key], `/${key}`, FIELD_KINDS[key] ?? "metadata", origin, out);
   }
+
+  out.push({ path: "/packages", kind: "composition", origin, applied: true, container: true });
+  for (const entry of composed.packages) {
+    const from = layerOrigin(entry.origin);
+    out.push(field(`/packages/${entry.alias}/source`, entry.source, "composition", from));
+    out.push(field(`/packages/${entry.alias}/version`, entry.version, "composition", from));
+    out.push(field(`/packages/${entry.alias}/resource`, entry.canonical, "composition", from));
+  }
+
+  for (const selector of composed.resources) {
+    const key = `/resources/${selector.package}:${selector.kind}`;
+    out.push({
+      path: key,
+      kind: "composition",
+      origin: describeOrigin(selectorOrigin(selector)),
+      applied: true,
+      container: true,
+    });
+    // Each loaded path is attributed to the layer that selected it, which is
+    // not always the layer that wrote the selector it survives under.
+    for (const path of selector.loaded) {
+      out.push(field(`${key}/loaded/${path}`, path, "composition", pathOrigin(selector, path)));
+    }
+    for (const excluded of selector.excluded) {
+      out.push({
+        ...field(
+          `${key}/excluded/${excluded.path}`,
+          excluded.path,
+          "composition",
+          layerOrigin(excluded.origin)
+        ),
+        reason: excluded.reason,
+      });
+    }
+  }
+
+  out.push({ path: "/runtime", kind: "preference", origin, applied: false, container: true });
+  const { tools, thinking, model } = composed.runtime;
+  tools.enabled.forEach((entry, index) => {
+    out.push(field(`/runtime/tools/enable/${index}`, entry.tool, "preference", layerOrigin(entry)));
+  });
+  tools.disabled.forEach((entry, index) => {
+    out.push({
+      ...field(`/runtime/tools/disable/${index}`, entry.tool, "preference", layerOrigin(entry)),
+      reason: entry.reason,
+    });
+  });
+  if (thinking) {
+    out.push(field("/runtime/thinking", thinking.value, "preference", layerOrigin(thinking)));
+  }
+  if (model.value !== null) {
+    out.push({
+      ...field("/runtime/model", model.value, "preference", {
+        layer: model.layer ?? model.winner,
+        identity: model.identity ?? null,
+      }),
+      reason: model.reason ?? null,
+    });
+  }
+
+  out.push({ path: "/persona", kind: "content", origin, applied: true, container: true });
+  composed.persona.append.forEach((entry, index) => {
+    out.push(field(`/persona/append/${index}`, entry.text, "content", layerOrigin(entry)));
+  });
   return out;
+}
+
+function field(path, value, kind, origin) {
+  return {
+    path,
+    value,
+    kind,
+    origin: describeOrigin(origin),
+    applied: kind !== "preference",
+    container: false,
+  };
+}
+
+function describeOrigin(origin) {
+  if (!origin) return "no layer";
+  return origin.identity ? `${origin.layer} layer (${origin.identity})` : `${origin.layer} layer`;
+}
+
+function layerOrigin(origin) {
+  if (!origin) return null;
+  return { layer: origin.layer ?? null, identity: origin.identity ?? null };
+}
+
+/** The layer that wrote a selector, or the earliest one that contributed. */
+function selectorOrigin(selector) {
+  const origin = selector.origins[0];
+  return origin ? layerOrigin(origin) : null;
+}
+
+/** The layer that selected one path, falling back to the selector's own. */
+function pathOrigin(selector, path) {
+  // The most recent action for a path is the effective one: a higher layer
+  // re-including a path overrides the base that first named it.
+  const origin = selector.origins.findLast((entry) => entry.path === path);
+  return layerOrigin(origin ?? selector.origins[0]);
 }
 
 function walkField(value, path, kind, origin, out) {
@@ -297,24 +485,37 @@ function isContainer(value) {
   return typeof value === "object" && value !== null;
 }
 
-/** Preferences that are declared but deliberately not applied. */
-function proposals(definition) {
-  const runtime = definition.runtime ?? {};
+/**
+ * Preferences that are declared but deliberately not applied.
+ *
+ * A preference the user or the CLI already decided is reported as such rather
+ * than as something `use` would do, and an unmet preference keeps its reason.
+ */
+function proposals(composed) {
+  const { tools, thinking, model } = composed.runtime;
   const out = [];
-  if (runtime.model) {
-    const provider = runtime.model.provider ?? "(current provider)";
+  if (thinking) out.push(`/wardrobe use would propose thinking level ${thinking.value} (${thinking.layer})`);
+  if (model.value !== null) {
     out.push(
-      `/wardrobe use would propose model ${provider}/${runtime.model.id ?? "(current)"}`
+      model.winner === "user"
+        ? `/wardrobe use would propose model ${model.value}, but an explicit user or CLI choice wins`
+        : `/wardrobe use would propose model ${model.value}`
     );
   }
-  if (runtime.thinking) {
-    out.push(`/wardrobe use would propose thinking level ${runtime.thinking}`);
+  if (tools.enabled.length > 0) {
+    out.push(
+      `/wardrobe use would propose enabling tools: ${tools.enabled.map((entry) => entry.tool).join(", ")}`
+    );
   }
-  if (runtime.tools?.enable?.length) {
-    out.push(`/wardrobe use would propose enabling tools: ${runtime.tools.enable.join(", ")}`);
+  if (tools.disabled.length > 0) {
+    out.push(
+      `/wardrobe use would propose disabling tools: ${tools.disabled.map((entry) => entry.tool).join(", ")}`
+    );
   }
-  if (runtime.tools?.disable?.length) {
-    out.push(`/wardrobe use would propose disabling tools: ${runtime.tools.disable.join(", ")}`);
+  for (const entry of tools.unmet) {
+    out.push(
+      `/wardrobe use would propose enabling tools: ${entry.tool} — refused: ${entry.reason}`
+    );
   }
   return out;
 }
@@ -326,6 +527,10 @@ function serialiseRejection(error) {
 /** Attach the rendered text so the extension does not re-derive it. */
 export function withText(entry) {
   return { ...entry, text: entry.ok ? renderResult(entry.result) : entry.result.text };
+}
+
+function success(command, result) {
+  return { ok: true, command, result: { ok: true, command, installed: false, active: false, ...result } };
 }
 
 function failure(command, error) {

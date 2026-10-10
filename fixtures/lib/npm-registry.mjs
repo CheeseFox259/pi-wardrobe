@@ -62,7 +62,9 @@ export class NpmRegistryFixture {
         return result.stdout.trim();
       });
 
-    const packDir = join(sandbox.work, "npm-pack");
+    // One pack directory per package name: two fixture packages may share a
+    // version number, and their build trees must not collide.
+    const packDir = join(sandbox.work, `npm-pack-${name}`);
     ensureDir(packDir);
 
     const tarballs = new Map();

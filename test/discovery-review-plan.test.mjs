@@ -16,8 +16,15 @@ import { useHarness } from "./support/harness.mjs";
 const harness = useHarness("discovery-review-plan");
 const MANAGER_DIR = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "packages/wardrobe");
 
-/** Cached sources, so each repository is built once per file. */
+/** Cached sources, so each repository and package is built once per file. */
 const repos = {};
+const packages = {};
+
+/** An additional controlled npm package, built once per name. */
+async function npmPackage(h, name) {
+  packages[name] ??= await h.npmPackage(name, [{ version: "1.0.0", exitCode: 0 }]);
+  return packages[name];
+}
 
 async function installManager(h) {
   await h.pi.runOk("primary", ["install", MANAGER_DIR]);
@@ -107,10 +114,13 @@ test("a Git source is really fetched at a full commit", async () => {
 test("the preview names every install and load surface and exact artifact", async () => {
   const h = harness();
   await installManager(h);
+  // Two distinct canonical packages: one canonical package at two versions is
+  // a conflict, and a review plan cannot describe both at once (ticket 04).
+  const second = await npmPackage(h, "surfaced-second");
   const preset = declaration({
     packages: {
       tools: { source: "npm:wardrobe-fixture@1.0.0" },
-      skills: { source: "npm:wardrobe-fixture@3.0.0" },
+      skills: { source: second.sourceAt("1.0.0") },
     },
     resources: [
       { package: "skills", kind: "skills", include: ["skills/review/SKILL.md"] },

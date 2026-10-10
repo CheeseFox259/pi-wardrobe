@@ -95,6 +95,14 @@ export async function createFixtureHarness({
        */
       gitRepo: (name, commits) => buildGitRepo({ sandbox, server, name, commits }),
 
+      /**
+       * Build and serve an additional controlled npm package on the same
+       * loopback registry. Composition checks need two distinct canonical
+       * packages, and two versions of one, to tell the rules apart.
+       */
+      npmPackage: (name, versions) =>
+        NpmRegistryFixture.create({ sandbox, server, name, versions }),
+
       agentPath: (name) => sandbox.agentPath(name),
       settings: (name) => readJson(`${sandbox.agentPath(name)}/settings.json`),
       settingsBytes: (name) => readText(`${sandbox.agentPath(name)}/settings.json`),

@@ -8,11 +8,50 @@ The Wardrobe preset manager for Pi. It registers exactly one command,
 | Command | Behaviour |
 | --- | --- |
 | `/wardrobe list` | Discovers `preset.json` declarations in the configured source directories, validates each strictly, and lists them with their snapshot state. Read-only: it never copies resources |
-| `/wardrobe show <preset>` | One preset's identity, version, source, declared packages and resources. Captures a snapshot as it inspects |
-| `/wardrobe explain [preset]` | Every declared field with its origin, including nested leaves, plus the preferences that are proposals. Captures a snapshot as it inspects |
+| `/wardrobe show <preset>` | One preset's identity, version, source, composed layers, packages and selected resources. Captures a snapshot as it inspects |
+| `/wardrobe explain <preset>` | Every composed value with the layer and revision it came from, the resources that load and the ones that do not with their reasons, and the preferences that are only proposals |
+| `/wardrobe explain <preset> --overlay <path>` | Composes one session overlay over the preset. Soft preferences only |
+| `/wardrobe explain <preset> --disable-tool <a,b>` | Applies a CLI exclusion: no layer can re-enable those tools, and the request is reported as unmet |
+| `/wardrobe explain <preset> --model <provider/id>` | Records an explicit model choice, which wins over any declared preference |
 | `/wardrobe install <source>` | Discovers the source and produces an immutable review plan. Installs nothing |
 | `/wardrobe install <source> --preset <path>` | Explicit selection when a source declares more than one preset |
 | `/wardrobe install <source> --confirm <digest>` | Approves a plan by quoting the digest it printed. A different digest is refused |
+
+## Composition and provenance
+
+A declaration is rarely the whole environment. Composition folds layers in one
+order — **Base → Preset → User → Session** — and every effective value keeps the
+layer it came from, so `explain` reports provenance instead of a merged blob.
+
+- **Parents** resolve from their own pinned source: the parent is captured, not
+  trusted, so an inherited declaration is read at a full commit or an exact npm
+  version like any other. A parent that declares several presets must be named
+  with `presetPath`, and a chain that repeats an identity is refused with the
+  whole chain rather than resolved arbitrarily.
+- **Aliases are stable.** An inherited alias cannot be rebound to another
+  package, and two layers that require different versions of one canonical
+  package fail with both origins instead of a winner being picked.
+- **Resource selectors** fold per package and kind. A supplied `include`
+  replaces the candidate set and re-includes the paths it names; an omitted
+  `include` inherits. A supplied
+  `exclude` removes paths afterwards, so a same-layer exclusion wins over a
+  same-layer inclusion. A lower exclusion survives until a higher layer names
+  that path again. `include: []` chooses none, and a package and kind with no
+  selector anywhere loads nothing.
+- **Tools** fold the same way: same-layer disable wins, a higher layer may
+  re-enable, and nothing re-enables a tool the user or the CLI excluded. An
+  unmet request keeps its reason.
+- **Instructions** append in layer order; nothing is removed or replaced. A
+  **model preference** yields to an explicit user or CLI choice, which is
+  reported as such rather than as an effective value.
+- **Overlays are soft.** A user overlay (`<agentDir>/wardrobe/user.json`) or a
+  session overlay may set tools, thinking, model and appended instructions, and
+  nothing else. Declaring a package or a resource is refused: loaded resources
+  belong to a reviewed revision, and changing them requires a new one.
+
+Only executable identity — the packages and the resources that would load —
+decides whether a change needs a new reviewed revision. Preferences do not
+appear in it, so a soft change is classified as one.
 
 ## Discovery and the review plan
 
@@ -69,16 +108,23 @@ A preset definition is a `preset.json` with `schemaVersion: 1`. Required:
 A preset `id` may be namespaced, e.g. `wardrobe/minimal-coding`. A package
 source is `npm:<name>@<exact-version>`, `git:<url>@<full-commit-sha>`, or `.`
 for the package that contains the definition itself. A branch or tag is
-refused: a preset always pins what it resolved to.
+refused: a preset always pins what it resolved to. `extends` names one parent,
+`{ source, presetPath? }`, captured from its own pinned source.
 
 Each entry in `resources` selects paths *inside* a declared package:
-`package` names an alias from `packages`, `kind` is `extensions`, `skills`,
-`prompts` or `themes`, `include` is required and `exclude` optional. Both lists
-hold package-relative paths such as `skills/review/SKILL.md`.
+`package` names an alias from `packages` — its own or an inherited one —
+`kind` is `extensions`, `skills`, `prompts` or `themes`, and both `include` and
+`exclude` are optional package-relative path lists such as
+`skills/review/SKILL.md`. An empty `include` is valid and means "load none of
+this"; an omitted one inherits the lower layer's selection. Omitting `kind`
+applies the selector to the package as a whole; the exact type a path loads as
+is Pi's own per-type filtering, so the plan does not guess one.
 
 Validation is strict. Unknown fields, malformed versions or ranges, and
 excluded concepts — credentials, MCP server definitions, script hooks, plugin
-private configuration — are refused with the exact path that caused them.
+private configuration — are refused with the exact path that caused them. An
+alias a resource names but no layer declares is refused when the layers are
+composed, which is the first point where the whole chain is known.
 
 ```json
 {
@@ -109,9 +155,11 @@ installed.
 npm test
 ```
 
-- `test/schema-strict.test.mjs` — declaration validation
+- `test/schema-strict.test.mjs` — declaration and overlay validation
 - `test/manager-inspection.test.mjs` — the manager installed and driven inside a
   real isolated Pi session
+- `test/composition-provenance.test.mjs` — layer folding, and inherited presets
+  reviewed through real Git and npm sources
 
 Tracked by
-[issue #10](https://github.com/CheeseFox259/pi-wardrobe/issues/10).
+[issue #12](https://github.com/CheeseFox259/pi-wardrobe/issues/12).

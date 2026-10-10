@@ -1,63 +1,110 @@
-// Building a review plan from a captured source.
+// Building a review plan from a captured source and everything it inherits.
 //
 // Everything here is read-only with respect to Pi: it resolves declared npm
-// package sources to their exact artifacts and enumerates the surfaces the
-// preset would load. It never installs, and never imports package code.
+// package sources to their exact artifacts and enumerates the resources the
+// composed preset would load. It never installs, and never imports package
+// code.
 
-import { lstatSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { compose, classifyChange, describeLayer, executableIdentity } from "./compose.mjs";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
+import { captureSource } from "./discover.mjs";
 import { parseSource } from "./identity.mjs";
+import { resolveChain } from "./inherit.mjs";
 import { buildPlan, planIdOf, sealPlan } from "./plan.mjs";
 import { resolveNpmPackage } from "./npm-source.mjs";
 import { resolvePackagePath } from "./git-source.mjs";
 
 /**
+ * Resolve a captured preset into ordered layers and compose them.
+ *
+ * Parent sources are captured through the same path the top-level source went
+ * through, so an inherited declaration is read at its own pinned source rather
+ * than trusted from a declaration or from disk.
+ *
+ * @param {{captured: object, preset: object, workDir: string, registry?: string,
+ *   env?: object, fetchImpl?: Function, overlays?: object[], restrictions?: object}} input
+ * @returns {Promise<{layers: object[], composed: object, executable: object}>}
+ */
+export async function composeFor({
+  captured,
+  preset,
+  workDir,
+  registry,
+  env = {},
+  fetchImpl,
+  overlays = [],
+  restrictions = {},
+}) {
+  const capture = (locator) =>
+    captureSource(locator, {
+      workDir,
+      env: { ...env, GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1" },
+      registry,
+      fetchImpl,
+    });
+
+  const declared = await resolveChain({ captured, preset, capture });
+  const layers = [
+    ...declared,
+    ...overlays.map((overlay) => ({
+      kind: overlay.kind,
+      identity: overlay.identity,
+      captured: null,
+      preset: null,
+      definition: overlay.definition,
+    })),
+  ];
+
+  const composed = compose(layers, { restrictions });
+  // Self resources ship with the declaration that names them, so their paths
+  // can only be checked against the capture that declaration came from — which
+  // may be an ancestor's capture, not the preset's own.
+  checkSelfContainedResources(declared, composed);
+  return {
+    layers,
+    composed,
+    executable: executableIdentity(composed),
+    // What an overlay changed. Overlays are soft by construction, so this is
+    // the check that a session preference did not quietly require a new
+    // reviewed revision.
+    change: classifyChange(compose(declared, { restrictions }), composed),
+  };
+}
+
+/**
  * Build and seal the plan for one captured preset.
  *
- * @returns {object} the sealed plan, including its digest
+ * @returns {Promise<object>} the sealed plan, including its digest
  */
-export async function planFor({ captured, preset, registry, env, fetchImpl }) {
-  const definition = preset.definition;
-  const packages = definition.packages ?? {};
-  const resources = definition.resources ?? [];
+export async function planFor(options) {
+  const { captured, preset } = options;
+  const { layers, composed, executable } = await composeFor(options);
 
-  const resolvedPackages = [];
-  for (const [alias, entry] of Object.entries(packages)) {
-    resolvedPackages.push(
-      await resolvePackageSource({ alias, entry, captured, registry, env, fetchImpl })
+  const packages = [];
+  for (const entry of composed.packages) {
+    const layer = layers.find(
+      (candidate) =>
+        candidate.kind === entry.origin.layer && candidate.identity === entry.origin.identity
     );
+    const declaration = layer?.definition.packages?.[entry.alias];
+    if (!declaration) continue;
+    packages.push({
+      ...(await resolvePackageSource({
+        alias: entry.alias,
+        entry: declaration,
+        captured: layer.captured,
+        registry: options.registry,
+        env: options.env,
+        fetchImpl: options.fetchImpl,
+      })),
+      origin: entry.origin,
+    });
   }
 
-  const checkedResources = resources.map((resource, index) => {
-    if (!Object.hasOwn(packages, resource.package)) {
-      throw WardrobeError.from("resource references an undeclared package", [
-        new WardrobeDiagnostic({
-          path: `/resources/${index}/package`,
-          reason: `${JSON.stringify(resource.package)} is not declared`,
-        }),
-      ]);
-    }
-    return resource;
-  });
-
-  // Load surfaces come from two independent places: the resource selectors this
-  // preset declares, and the manifest of a package captured alongside it.
-  // Deriving both from `resources` would count every selector twice.
-  // A self-contained preset ships the resources it selects, so those paths can
-  // be checked now. Resources of external packages cannot: their contents only
-  // exist after install, and that is where they are checked.
-  checkSelfContainedResources(captured, preset, definition);
-
-  const selfSurfaces = capturedManifestSurfaces(captured, preset);
-  const selectorSurfaces = checkedResources.map((resource) => ({
-    alias: resource.package,
-    surface: `${resource.kind ?? "resources"}:${resource.package}/${[...resource.include].sort().join(",")}`,
-  }));
-
   const { plan } = buildPlan({
-    identity: { source: preset.source, id: definition.id },
-    definition,
+    identity: { source: preset.source, id: preset.definition.id },
+    definition: preset.definition,
     source: {
       kind: captured.kind,
       locator: captured.locator,
@@ -69,10 +116,12 @@ export async function planFor({ captured, preset, registry, env, fetchImpl }) {
       declarationPath: preset.path,
       declarationDigest: preset.digest,
     },
-    packages: resolvedPackages,
-    resources: checkedResources,
-    packageSurfaces: selectorSurfaces,
-    selfSurfaces,
+    layers: layers.map(describeLayer),
+    packages,
+    resources: composed.resources,
+    runtime: composed.runtime,
+    persona: composed.persona,
+    executable,
   });
 
   const sealed = { ...plan, planId: planIdOf(plan.identity, plan.source) };
@@ -137,55 +186,31 @@ function artifactOfCapture(captured) {
 }
 
 /**
- * Load surfaces declared by the manifest of a package captured in this source.
- *
- * Only what the manifest actually declares is named. Nothing is inferred from
- * the file system, so the preview cannot claim a surface that does not exist.
- */
-function capturedManifestSurfaces(captured, preset) {
-  const candidates = [
-    join(captured.root, dirname(preset.path), "package.json"),
-    join(captured.root, "package.json"),
-  ];
-  const surfaces = new Set();
-  for (const manifestPath of candidates) {
-    if (!lstatSync(manifestPath, { throwIfNoEntry: false })?.isFile()) continue;
-    let manifest;
-    try {
-      manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-    } catch {
-      continue;
-    }
-    for (const surface of manifestSurfaces(manifest)) surfaces.add(surface);
-  }
-  return [...surfaces].sort();
-}
-
-function manifestSurfaces(manifest) {
-  const pi = manifest.pi ?? {};
-  return [
-    ...(pi.extensions ?? []).map((file) => `extension:${file}`),
-    ...(pi.skills ?? []).map((name) => `skills:${name}`),
-    ...(pi.prompts ?? []).map((name) => `prompts:${name}`),
-    ...(pi.themes ?? []).map((name) => `themes:${name}`),
-  ];
-}
-
-/**
- * Validate that every declared resource path exists inside the captured source.
+ * Validate that every selected resource path exists inside its captured source.
  *
  * Only meaningful for self-contained declarations whose package ships in the
- * same capture; anything else is resolved at install time, after approval.
+ * same capture; anything else is resolved at install time, after approval. A
+ * selector may name an alias an ancestor declared, so the capture is looked up
+ * through the composition rather than through the layer that wrote the selector.
  */
-export function checkSelfContainedResources(captured, preset, definition) {
-  const packages = definition.packages ?? {};
-  for (const [index, resource] of (definition.resources ?? []).entries()) {
-    if (packages[resource.package]?.source !== ".") continue;
-    // A self source is the package that carries this definition, so the package
+export function checkSelfContainedResources(declaredLayers, composed) {
+  const selfAliases = new Map();
+  for (const layer of declaredLayers) {
+    for (const [alias, entry] of Object.entries(layer.definition.packages ?? {})) {
+      if (entry.source === ".") selfAliases.set(alias, layer);
+    }
+  }
+
+  for (const selector of composed.resources) {
+    const layer = selfAliases.get(selector.package);
+    if (!layer) continue;
+    // A self source is the package that carries that definition, so the package
     // root is the directory holding the declaration — not a `resources/` folder.
-    const packageRoot = join(captured.root, dirname(preset.path));
-    for (const include of resource.include ?? []) {
-      resolvePackagePath(packageRoot, include, `/resources/${index}/include`);
+    const packageRoot = join(layer.captured.root, dirname(layer.preset.path));
+    for (const contribution of selector.contributions) {
+      for (const path of contribution.include) {
+        resolvePackagePath(packageRoot, path, `${contribution.path}/include`);
+      }
     }
   }
 }

@@ -37,15 +37,21 @@ export function planIdOf(identity, source) {
  * `loadSurfaces` names every resource that would become active; `artifacts`
  * names every exact file or tarball the plan covers. Neither is a promise that
  * anything has been installed.
+ *
+ * The plan describes a *composed* environment: inherited declarations, the
+ * user's own soft overlay, the effective selectors and the effective
+ * preferences all appear with the layer each value came from.
  */
 export function buildPlan({
   identity,
   definition,
   source,
+  layers,
   packages,
   resources,
-  packageSurfaces,
-  selfSurfaces,
+  runtime,
+  persona,
+  executable,
 }) {
   const plan = {
     identity,
@@ -55,6 +61,7 @@ export function buildPlan({
       schemaVersion: definition.schemaVersion,
     },
     source,
+    layers: [...(layers ?? [])].map(describe),
     installationSurfaces: packages.map((entry) => ({
       alias: entry.alias,
       source: entry.source,
@@ -62,28 +69,59 @@ export function buildPlan({
       artifact: entry.artifact,
       installsCode: entry.hasInstallScript === true,
       scripts: entry.scripts ?? [],
+      declaredBy: entry.origin ?? null,
     })),
+    // Only resources a selector actually selects are named. A package and type
+    // with no selector anywhere loads nothing, so claiming a load surface for
+    // it would describe code the user never approved loading.
     resourceSelectors: resources.map((resource) => ({
-      alias: resource.alias,
+      alias: resource.package,
       package: resource.package,
-      kind: resource.kind ?? "resources",
+      kind: resource.kind,
+      generic: resource.generic === true,
       include: [...resource.include].sort(),
       exclude: [...(resource.exclude ?? [])].sort(),
+      loaded: [...resource.loaded].sort(),
+      excluded: (resource.excluded ?? []).map((entry) => ({
+        path: entry.path,
+        reason: entry.reason,
+        layer: entry.origin.layer,
+        identity: entry.origin.identity,
+      })),
+      declaredBy: resource.origins ?? [],
     })),
-    loadSurfaces: [
-      ...selfSurfaces.map((surface) => ({ from: identity.source, surface })),
-      ...packageSurfaces.map((surface) => ({ from: surface.alias, surface: surface.surface })),
-    ].sort((a, b) => a.surface.localeCompare(b.surface)),
+    loadSurfaces: resources
+      .flatMap((resource) =>
+        resource.loaded.map((path) => ({
+          from: resource.package,
+          surface: `${resource.kind}:${resource.package}/${path}`,
+        }))
+      )
+      .sort((a, b) => a.surface.localeCompare(b.surface)),
+    runtime: runtime ?? null,
+    persona: persona ?? null,
+    executable: executable ?? null,
     artifacts: [
       ...packages.map((entry) => artifactIdOf(entry)),
       ...resources.flatMap((resource) =>
-        [...resource.include].map((path) => `${resource.package}:${path}`)
+        resource.loaded.map((path) => `${resource.package}:${path}`)
       ),
     ]
       .filter(Boolean)
       .sort(),
   };
   return { plan, digest: digestOf(plan) };
+}
+
+/** The layer description stored in a plan: identity and revision, no content. */
+function describe(layer) {
+  return {
+    kind: layer.kind,
+    identity: layer.identity,
+    source: layer.source ?? null,
+    declarationPath: layer.declarationPath ?? null,
+    declarationDigest: layer.declarationDigest ?? null,
+  };
 }
 
 /** The exact artifact a package resolves to, named the way a user approved it. */

@@ -129,7 +129,7 @@ test("resource selectors require package-relative paths", () => {
   const selector = (include) =>
     composedPreset({ resources: [{ package: "@scope/tools", kind: "skills", include }] });
   assert.equal(validateDefinition(selector(["skills/a/SKILL.md"])).ok, true);
-  // An explicitly empty optional exclude is allowed; an empty include is not.
+  // An explicitly empty optional exclude is allowed.
   assert.equal(
     validateDefinition(
       composedPreset({
@@ -140,15 +140,36 @@ test("resource selectors require package-relative paths", () => {
     ).ok,
     true
   );
-  assert.match(
-    reject(composedPreset({ resources: [{ package: "toString", include: ["a"] }] })),
-    /not declared in \/packages/
+  // Whether a resource's package alias resolves is decided when the layers are
+  // composed, because an inherited parent may declare it; the declaration
+  // itself stays well-formed.
+  assert.equal(
+    validateDefinition(
+      composedPreset({ resources: [{ package: "toString", include: ["a"] }] })
+    ).ok,
+    true
   );
-  assert.match(reject(selector([])), /\/resources\/0\/include/);
+  // An empty include is how a layer chooses to load none of a package's
+  // resources, so it is valid — it is not an empty path list.
+  assert.equal(validateDefinition(selector([])).ok, true);
+  // An omitted include inherits the lower layer's selection; an omitted
+  // exclude removes nothing.
+  assert.equal(validateDefinition(selector(undefined)).ok, true);
+  assert.equal(
+    validateDefinition(
+      composedPreset({ resources: [{ package: "@scope/tools", kind: "skills" }] })
+    ).ok,
+    true
+  );
+  assert.equal(validateDefinition(selector("skills/a/SKILL.md")).ok, false);
   assert.match(reject(selector(["/etc/passwd"])), /package-relative path/);
   assert.match(reject(selector(["../../secrets"])), /package-relative path/);
   assert.match(
-    reject(composedPreset({ resources: [{ package: "@scope/tools" }] })),
+    reject(composedPreset({ resources: [{ kind: "skills", include: ["a"] }] })),
+    /\/resources\/0\/package/
+  );
+  assert.match(
+    reject(composedPreset({ resources: [{ package: "@scope/tools", include: [42] }] })),
     /\/resources\/0\/include/
   );
 });

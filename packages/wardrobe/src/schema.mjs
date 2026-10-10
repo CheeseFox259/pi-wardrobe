@@ -5,6 +5,7 @@
 // authored by strangers and a silent default is worse than a refusal.
 
 import { WardrobeDiagnostic, WardrobeError, unsupportedReason } from "./diagnostics.mjs";
+import { softOverlayViolation } from "./compose.mjs";
 import { parseSource } from "./identity.mjs";
 import {
   isCompatibilityRange,
@@ -52,7 +53,10 @@ const FIELDS = {
       fields: {
         package: { type: "text", required: true },
         kind: { type: "enum", values: RESOURCE_KINDS, required: false },
-        include: { type: "pathList", required: true },
+        // An empty include is not a mistake: it is how a layer chooses to load
+        // none of that package's resources. An omitted one inherits whatever a
+        // lower layer selected, so both are meaningful.
+        include: { type: "pathList", required: false, allowEmpty: true },
         exclude: { type: "pathList", required: false, allowEmpty: true },
       },
     },
@@ -118,39 +122,65 @@ export function validateDefinition(raw, { origin = "preset.json" } = {}) {
     }
   }
 
-  if (definition) checkResourcePackages(definition, diagnostics);
-
   if (diagnostics.length > 0) {
     return failure(`${origin} is not a valid preset declaration`, diagnostics);
   }
   return { ok: true, definition };
 }
 
+// Whether a resource's package is declared is *not* checked here: a preset may
+// select resources from an alias an inherited parent declared, and only the
+// composed chain can answer that. Composition refuses an unresolved alias with
+// the same path-specific diagnostic.
+
+/** The soft subset an overlay may declare, reusing the declaration's own spec. */
+const OVERLAY_FIELDS = {
+  runtime: FIELDS.runtime,
+  persona: FIELDS.persona,
+};
+
 /**
- * Every resource must name a package the same declaration declares.
+ * Validate a user or session overlay.
  *
- * This lives with the rest of declaration validity rather than in discovery, so
- * there is one owner for "is this declaration well-formed".
+ * An overlay is a strict subset of a declaration: idle, soft-switchable
+ * preferences only. Anything executable is refused here with the rule the
+ * composition boundary also enforces, so an author is told where that field
+ * belongs instead of only that it is unknown.
+ *
+ * @returns {{ok: true, definition: object} | {ok: false, error: WardrobeError}}
  */
-function checkResourcePackages(definition, diagnostics) {
-  const packages = definition.packages ?? {};
-  (definition.resources ?? []).forEach((resource, index) => {
-    if (!resource || !Object.hasOwn(packages, resource.package)) {
-      diagnostics.push(
-        new WardrobeDiagnostic({
-          path: `/resources/${index}/package`,
-          reason: `package ${JSON.stringify(resource?.package)} is not declared in /packages`,
-          hint: `declared packages: ${Object.keys(packages).join(", ") || "(none)"}`,
-        })
-      );
-    }
-  });
+export function validateOverlay(raw, { origin = "overlay.json" } = {}) {
+  if (!isPlainObject(raw)) {
+    return failure(`${origin} is not a valid overlay`, [
+      new WardrobeDiagnostic({
+        path: "",
+        reason: `expected an object, found ${describeType(raw)}`,
+        hint: "an overlay carries runtime and persona preferences",
+      }),
+    ]);
+  }
+
+  const diagnostics = [];
+  const permitted = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const violation = softOverlayViolation(key, `/${key}`);
+    if (violation) diagnostics.push(violation);
+    else permitted[key] = value;
+  }
+  const definition = checkObject(permitted, "", OVERLAY_FIELDS, diagnostics);
+
+  if (diagnostics.length > 0) {
+    return failure(`${origin} is not a valid overlay`, diagnostics);
+  }
+  return { ok: true, definition };
 }
 
 function checkObject(value, basePath, spec, diagnostics) {
   const result = {};
   for (const key of Object.keys(spec)) {
-    if (!(key in value)) {
+    // An explicit `undefined` is treated as absent: JSON cannot express it, and
+    // a caller that builds a declaration in memory means the same thing.
+    if (!(key in value) || value[key] === undefined) {
       if (spec[key].required) {
         diagnostics.push(
           new WardrobeDiagnostic({
@@ -166,7 +196,7 @@ function checkObject(value, basePath, spec, diagnostics) {
   }
 
   for (const key of Object.keys(value)) {
-    if (key in spec) continue;
+    if (key in spec || value[key] === undefined) continue;
     const reason = unsupportedReason(key);
     diagnostics.push(
       new WardrobeDiagnostic({

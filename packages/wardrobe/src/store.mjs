@@ -16,7 +16,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { WardrobeError } from "./diagnostics.mjs";
 import { validateDefinition } from "./schema.mjs";
 
@@ -132,6 +132,11 @@ export function discover(dirs) {
         name: result.definition.name,
         version: result.definition.version,
         definition: result.definition,
+        // Captured presets carry `path` relative to their root and the digest
+        // of the declaration; a locally discovered one is presented the same
+        // way so composition never has to know which it was given.
+        path: relative(source, declarationPath),
+        digest: digestOf(raw),
         declarationPath,
         capturedFrom: declarationPath,
       };
@@ -142,6 +147,10 @@ export function discover(dirs) {
 }
 
 const SKIP_DIRS = new Set([".git", "node_modules"]);
+
+function digestOf(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
 
 /**
  * Every `preset.json` under a source root.

@@ -230,16 +230,18 @@ test("an invalid declaration is refused with its path and the rest still lists",
   }
 });
 
-test("an undeclared resource package rejects only its own declaration", async () => {
+test("an unresolved resource alias refuses only its own declaration", async () => {
   const h = harness();
   await installManager(h);
   const source = presetRoot(h, "missing-resource");
-  // Selects a resource from a package the declaration never declares.
+  // Selects a resource from a package no layer declares. Alias resolution runs
+  // across the inherited chain, so the refusal happens when it is composed.
   writePreset(
     source,
     "broken-resources",
     composedPreset({
       id: "broken-resources",
+      packages: {},
       resources: [{ package: "@scope/absent", include: ["skills/x/SKILL.md"] }],
     })
   );
@@ -250,17 +252,28 @@ test("an undeclared resource package rejects only its own declaration", async ()
   });
   try {
     await session.command("wardrobe list");
-    const [result] = await session.readCustomEntries(RESULT_TYPE);
-    const data = result.data;
-    assert.equal(data.ok, true, "a bad resource aborted the whole listing");
-    assert.deepEqual(data.presets.map((preset) => preset.id), ["healthy"]);
-    assert.equal(data.rejected.length, 1);
-    assert.match(data.rejected[0].text, /\/resources\/0\/package/);
-    assert.match(data.rejected[0].text, /not declared in \/packages/);
-    assert.match(data.rejected[0].text, /broken-resources\/preset\.json/);
-    h.record("undeclared-resource-rejects-only-its-preset", {
-      listed: data.presets.map((preset) => preset.id),
-      rejection: data.rejected[0].text,
+    await session.command("wardrobe explain broken-resources");
+    await session.command("wardrobe explain healthy");
+    const results = (await session.readCustomEntries(RESULT_TYPE)).map((entry) => entry.data);
+
+    const listed = results.find((entry) => entry.command === "list");
+    assert.equal(listed.ok, true, "a bad resource aborted the whole listing");
+    assert.deepEqual(
+      listed.presets.map((preset) => preset.id).sort(),
+      ["broken-resources", "healthy"]
+    );
+
+    const broken = results.find((entry) => entry.command === "explain" && !entry.ok);
+    assert.ok(broken, "an unresolved alias composed successfully");
+    assert.match(broken.text, /\/resources\/0\/package/);
+    assert.match(broken.text, /not declared in \/packages/);
+    assert.match(broken.text, /broken-resources\/preset\.json/);
+
+    const healthy = results.find((entry) => entry.command === "explain" && entry.ok);
+    assert.equal(healthy.definition.name, "Minimal Coding");
+    h.record("unresolved-alias-refused-only-its-preset", {
+      listed: listed.presets.map((preset) => preset.id),
+      refusal: broken.text,
     });
   } finally {
     await session.close();
