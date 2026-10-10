@@ -1,0 +1,15 @@
+{
+  "name": "pi-wardrobe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Wardrobe preset lifecycle workbench and controlled native fixtures.",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
+    "fixtures:verify": "node --test --test-concurrency=1 --test-reporter=spec \"test/**/*.test.mjs\" && node fixtures/report.mjs",
+    "fixtures:report": "node fixtures/report.mjs"
+  }
+}
