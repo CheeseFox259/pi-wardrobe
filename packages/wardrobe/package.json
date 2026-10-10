@@ -1,0 +1,18 @@
+{
+  "name": "@pi-wardrobe/manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Wardrobe preset manager for Pi: discover, review and inspect preset declarations.",
+  "license": "MIT",
+  "pi": {
+    "extensions": ["extensions/wardrobe.mjs"],
+    "skills": [],
+    "prompts": [],
+    "themes": []
+  },
+  "wardrobe": {
+    "kind": "manager",
+    "commands": ["list", "show", "explain"]
+  }
+}

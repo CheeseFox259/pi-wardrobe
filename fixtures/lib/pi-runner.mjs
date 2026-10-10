@@ -2,7 +2,7 @@
 //
 // Nothing here mocks the installer or the resource loader. Every assertion is
 // made against a real Pi process running against the loopback fixtures.
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJsonl } from "./fsx.mjs";
 
@@ -64,20 +64,25 @@ export class PiRunner {
     return this.driverPath;
   }
 
-  async rpc(agentName, { sessionFile, extraArgs = [] } = {}) {
+  async rpc(agentName, { sessionFile, extraArgs = [], extraEnv } = {}) {
     const driver = this.ensureDriver();
     const args = [...RPC_BASE_ARGS, "-e", driver];
     if (sessionFile) args.push("--session", sessionFile);
     else args.push("--no-session");
     const child = this.sandbox.runner.fork(process.execPath, [this.runtime.cliPath, ...args], {
       cwd: this.sandbox.project,
-      env: this.#env(agentName),
+      env: this.#env(agentName, extraEnv),
     });
-    return new RpcSession(child, this.sandbox.runner, {
+    const session = new RpcSession(child, this.sandbox.runner, {
       agentName,
       agentDir: this.sandbox.agentPath(agentName),
       eventsLog: this.sandbox.extensionLog,
     });
+    // Extensions load asynchronously after startup. Without this handshake the
+    // first request can arrive before they are registered, and a command sent
+    // through the prompt channel would then be treated as model input.
+    await session.request("get_state");
+    return session;
   }
 }
 
@@ -183,6 +188,20 @@ export class RpcSession {
     return readJsonl(this.eventsLog).slice(this.#eventOffset);
   }
 
+  /** Custom session entries the manager or driver appended. */
+  customEntries(customType) {
+    const path = join(this.agentDir, "fixture-entries.json");
+    if (!existsSync(path)) return [];
+    const entries = JSON.parse(readFileSync(path, "utf8"));
+    return customType ? entries.filter((entry) => entry.customType === customType) : entries;
+  }
+
+  /** Ask the driver to snapshot the current custom entries, then read them. */
+  async readCustomEntries(customType) {
+    await this.command("fixture-entries");
+    return this.customEntries(customType);
+  }
+
   lastExtensionState() {
     const states = this.extensionStates();
     return states.length > 0 ? states[states.length - 1] : null;
@@ -206,6 +225,7 @@ import { join } from "node:path";
 
 const settingsPath = () => join(process.env.PI_CODING_AGENT_DIR, "settings.json");
 const statePath = () => join(process.env.PI_CODING_AGENT_DIR, "fixture-state.jsonl");
+const entriesPath = () => join(process.env.PI_CODING_AGENT_DIR, "fixture-entries.json");
 
 const setExtensions = async (ctx, extensions) => {
   const settings = JSON.parse(readFileSync(settingsPath(), "utf8"));
@@ -228,6 +248,14 @@ export default function (pi) {
     handler: async () => {
       const state = { tools: pi.getActiveTools(), loads: globalThis.__wardrobeFixtureLoads ?? 0 };
       appendFileSync(statePath(), JSON.stringify(state) + "\\n");
+    },
+  });
+  pi.registerCommand("fixture-entries", {
+    handler: async (_args, ctx) => {
+      const custom = ctx.sessionManager
+        .getBranch()
+        .filter((entry) => entry.type === "custom");
+      writeFileSync(entriesPath(), JSON.stringify(custom));
     },
   });
 }
