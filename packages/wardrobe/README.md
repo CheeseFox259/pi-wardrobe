@@ -15,7 +15,7 @@ The Wardrobe preset manager for Pi. It registers exactly one command,
 | `/wardrobe explain <preset> --model <provider/id>` | Records an explicit model choice, which wins over any declared preference |
 | `/wardrobe install <source>` | Discovers the source and produces an immutable review plan. Installs nothing |
 | `/wardrobe install <source> --preset <path>` | Explicit selection when a source declares more than one preset |
-| `/wardrobe install <source> --confirm <digest>` | Approves a plan by quoting the digest it printed. A different digest is refused |
+| `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive. A different digest is refused and installs nothing |
 
 ## Composition and provenance
 
@@ -53,9 +53,39 @@ Only executable identity — the packages and the resources that would load —
 decides whether a change needs a new reviewed revision. Preferences do not
 appear in it, so a soft change is classified as one.
 
+## Installing an approved plan
+
+`--confirm <digest>` is the only path that installs anything. It re-checks that
+the plan still hashes to the digest that was approved, re-verifies each named
+artifact against the registry, and then installs through Pi's own package
+manager into `<agentDir>/wardrobe/staging/<revision>/attempt-<n>/` — a fresh
+agent directory this manager owns, with no auth, no user files and no shared
+package roots.
+
+- **Nothing loads.** The staged `settings.json` declares every package with
+  each resource type filtered to `[]`, before the install runs and again after
+  it. A staged revision can be inspected, and a process can start against it,
+  without a single resource becoming active. Activation is a separate, explicit
+  step this manager does not take.
+- **A revision is not reinstalled in place.** An available revision for the
+  same plan is reported as already available. A different resolution of the same
+  preset is a different revision and is staged beside the first one.
+- **A failure stays visible.** Pi's install runs package scripts, so a failed
+  attempt is retained as explicitly failed/unavailable with its residual files
+  listed and `rolledBack: false`. A retry is a new attempt directory; the
+  earlier one is reported as retained, never described as undone.
+- **The inventory is not launch availability.** A staged revision reports
+  `verifiedLaunchable: false`; whether a real process can start against it is
+  verified later.
+- A `.` self source installs as the pinned native source of the package that
+  ships the declaration. A local snapshot with no pinned native source is
+  refused, because Pi does not install a local package's dependencies and the
+  approved artifacts would otherwise not be what is installed.
+
 ## Discovery and the review plan
 
-`/wardrobe install` captures a source and describes it; it never installs.
+`/wardrobe install` captures a source and describes it. Only an explicitly
+approved plan is installed.
 
 - **Git** sources are fetched with real Git at a full 40-character commit SHA.
   A branch or tag is refused: a plan is only immutable when it names what it
@@ -93,10 +123,13 @@ with both candidates rather than guessing.
   skills, prompts or themes. Installing the manager must not pull in a preset.
 - No credentials. A preset cannot declare one, and the manager never reads or
   writes the user's auth store.
-- No claim of installation or activation. Every result reports
-  `installed: false, active: false`; a snapshot is data this manager wrote.
+- No claim of activation. `list`, `show` and `explain` report
+  `installed: false, active: false`; `install` reports a staged revision whose
+  resources are filtered inactive, explicitly not verified launchable.
 - Declared `runtime.model`, `runtime.thinking` and `runtime.tools` are reported
   as proposals until a preset is applied.
+- No rollback. A failed install leaves its files and its package script effects
+  in place and reports them; a retry is a new attempt beside it.
 
 ## Declaration contract
 
@@ -147,7 +180,8 @@ below it.
 Snapshots this manager writes live under `<agentDir>/wardrobe/snapshots/` and
 capture the declaration. Resource paths are not materialised there: they are
 package-relative, so they can only be resolved once the declared package is
-installed.
+installed. Installed revisions and their records live under
+`<agentDir>/wardrobe/staging/`.
 
 ## Checks
 
@@ -160,6 +194,8 @@ npm test
   real isolated Pi session
 - `test/composition-provenance.test.mjs` — layer folding, and inherited presets
   reviewed through real Git and npm sources
+- `test/staged-inactive-install.test.mjs` — approving a plan and installing it
+  through Pi into owned staging, with every resource inactive
 
 Tracked by
-[issue #12](https://github.com/CheeseFox259/pi-wardrobe/issues/12).
+[issue #13](https://github.com/CheeseFox259/pi-wardrobe/issues/13).

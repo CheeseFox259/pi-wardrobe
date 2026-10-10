@@ -139,6 +139,9 @@ export function sealPlan(plan) {
 /** True when a sealed plan still hashes to its recorded digest. */
 export function digestMatches(sealed) {
   if (!sealed?.digest) return false;
-  const { digest, ...body } = sealed;
+  // `approved` records that the plan was approved; it is not part of what was
+  // approved, so recording an approval must not invalidate the plan.
+  const { digest, approved, ...body } = sealed;
+  void approved;
   return digestOf(body) === digest;
 }

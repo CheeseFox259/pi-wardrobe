@@ -80,9 +80,10 @@ function renderLayers(layers) {
 
 function renderPlan(result) {
   const plan = result.plan;
+  const state = result.staging ? `${result.state} (staged, resources inactive)` : result.state;
   const lines = [
     `Review plan ${plan.planId} for ${plan.declaration.name} ${plan.declaration.version}`,
-    `  state: ${result.state}  installed: ${result.installed}  active: ${result.active}`,
+    `  state: ${state}  installed: ${result.installed ?? false}  active: ${result.active}`,
     `  source: ${plan.source.kind} ${plan.source.locator} (declaration ${plan.source.declarationPath})`,
   ];
   if (plan.source.commit) lines.push(`  commit: ${plan.source.commit}`);
@@ -108,9 +109,45 @@ function renderPlan(result) {
     }
   }
   lines.push(...renderPreferences(plan));
+  if (result.staging) lines.push(...renderStaging(result.staging));
   lines.push(`  digest: ${plan.digest}`);
-  lines.push(`  approve with: /wardrobe install <source> --confirm ${plan.digest}`);
+  if (!result.staging) {
+    lines.push(`  approve with: /wardrobe install <source> --confirm ${plan.digest}`);
+  }
   return lines.join("\n");
+}
+
+/**
+ * What staging holds.
+ *
+ * The inventory is deliberately separate from launch availability: a staged
+ * revision has its resources filtered out, and starting a process against it is
+ * a later, explicit step.
+ */
+function renderStaging(staging) {
+  const lines = [`  staged revision ${staging.revision} (${staging.state}), attempt ${staging.attempt}`];
+  if (staging.alreadyAvailable) {
+    lines.push("    this revision was already staged; nothing was reinstalled in place");
+  }
+  lines.push(`    agent dir: ${staging.agentDir}`);
+  for (const entry of staging.installed) {
+    lines.push(
+      `    ${entry.alias}: ${entry.source}${entry.identity?.version ? ` @ ${entry.identity.version}` : entry.identity?.commit ? ` @ ${entry.identity.commit}` : ""}${entry.filtered ? "  (resources filtered inactive)" : "  (NOT filtered)"}`
+    );
+  }
+  lines.push(`    resources active: ${staging.resourcesActive}`);
+  if (staging.previousAttemptsRetained.length > 0) {
+    lines.push(
+      `    earlier attempts retained: ${staging.previousAttemptsRetained.join(", ")} — their files are still on disk and were not rolled back`
+    );
+  }
+  if (staging.residual.length > 0) {
+    lines.push(`    residual files in this attempt: ${staging.residual.length}`);
+    for (const file of staging.residual.slice(0, 10)) lines.push(`      ${file}`);
+    if (staging.residual.length > 10) lines.push(`      … ${staging.residual.length - 10} more`);
+  }
+  lines.push("    launch availability is not verified here; nothing is active");
+  return lines;
 }
 
 /** Effective preferences, always marked as proposals until a preset is used. */

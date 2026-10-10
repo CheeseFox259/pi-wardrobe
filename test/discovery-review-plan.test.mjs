@@ -281,9 +281,14 @@ test("approval is bound to the displayed digest and invalidated by changes", asy
     `install ${git.sourceAt(git.commits[0])} --confirm ${digest}`
   );
   assert.equal(approved.ok, true, approved.text);
-  assert.equal(approved.state, "approved");
+  // Approval is the gate installation now runs behind (ticket 05): the first
+  // commit declares no package, so the revision stages with nothing in it.
+  assert.equal(approved.state, "available");
   assert.ok(approved.approvedAt, "no approval timestamp recorded");
-  assert.equal(approved.installed, false);
+  assert.equal(approved.installed, true);
+  assert.equal(approved.active, false);
+  assert.equal(approved.staging.state, "available");
+  assert.deepEqual(approved.staging.installed, []);
 
   const wrong = await wardrobe(h, `install ${git.sourceAt(git.commits[0])} --confirm ${"0".repeat(64)}`);
   assert.equal(wrong.ok, false);
@@ -294,6 +299,7 @@ test("approval is bound to the displayed digest and invalidated by changes", asy
   assert.match(stale.text, /source or its artifacts changed/);
   h.record("approval-bound-to-digest", {
     approved: approved.state,
+    approvedAt: approved.approvedAt,
     wrongDigestRefused: true,
     changedSourceRefused: true,
   });

@@ -15,6 +15,8 @@ import { resolveSelector } from "./identity.mjs";
 import { readOverlay, readUserOverlay } from "./overlay.mjs";
 import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
+import { installApprovedPlan } from "./install.mjs";
+import { stagingViewOf } from "./staging.mjs";
 import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
@@ -99,7 +101,18 @@ export async function runCommand(input, { env = process.env } = {}) {
     if (command === "install") {
       // Awaited inside the try: a rejected promise must still become a
       // reported refusal rather than an unhandled error in the session.
-      return await install(command, positional[0] ?? null, flags, { dir, env });
+      try {
+        return await install(command, positional[0] ?? null, flags, { dir, env });
+      } catch (error) {
+        // A failed install keeps its record: it is diagnostic state, and the
+        // user needs to see what was left behind.
+        if (error?.staging) {
+          const entry = failure(command, error);
+          entry.result.staging = stagingViewOf(error.staging);
+          return entry;
+        }
+        throw error;
+      }
     }
 
     const store = new PresetStore(dir);
@@ -296,33 +309,46 @@ async function install(command, source, flags, { dir, env }) {
     overlays: userOverlay ? [userOverlay] : [],
   });
   const quoted = typeof flags.get("confirm") === "string" ? flags.get("confirm") : null;
-  let state = "awaiting-approval";
-  let approved = null;
-  if (quoted !== null) {
-    if (quoted !== sealed.digest) {
-      return failure(
-        command,
-        WardrobeError.from("approval digest does not match the plan", [
-          new WardrobeDiagnostic({
-            path: "/confirm",
-            reason: `you quoted ${quoted}, the plan is ${sealed.digest}`,
-          }),
-          new WardrobeDiagnostic({
-            path: "",
-            reason: "the source or its artifacts changed since the plan was displayed",
-          }),
-        ])
-      );
-    }
-    approved = plans.approve({ planId: sealed.planId, digest: sealed.digest });
-    state = "approved";
+  // Without a quoted digest nothing is installed and no configuration changes:
+  // approval is what separates a review from an install.
+  if (quoted === null) {
+    plans.save(sealed);
+    return success(command, { state: "awaiting-approval", plan: sealed, approvedAt: null });
   }
-  plans.save(sealed);
+
+  if (quoted !== sealed.digest) {
+    return failure(
+      command,
+      WardrobeError.from("approval digest does not match the plan", [
+        new WardrobeDiagnostic({
+          path: "/confirm",
+          reason: `you quoted ${quoted}, the plan is ${sealed.digest}`,
+        }),
+        new WardrobeDiagnostic({
+          path: "",
+          reason: "the source or its artifacts changed since the plan was displayed",
+        }),
+      ])
+    );
+  }
+
+  const approved = plans.approve({ planId: sealed.planId, digest: sealed.digest });
+  const staging = await installApprovedPlan({
+    plan: approved,
+    agentDir: dir,
+    env,
+    registry: env.WARDROBE_REGISTRY,
+  });
 
   return success(command, {
-    state,
+    state: staging.state,
     plan: sealed,
-    approvedAt: approved?.approved?.at ?? null,
+    approvedAt: approved.approved.at,
+    installed: staging.state === "available",
+    staging: stagingViewOf(staging.record, {
+      selected: staging.attempt,
+      alreadyAvailable: staging.alreadyAvailable,
+    }),
   });
 }
 
