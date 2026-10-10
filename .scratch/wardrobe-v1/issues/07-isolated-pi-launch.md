@@ -5,9 +5,9 @@ Acceptance source: remote
 Spec: https://github.com/CheeseFox259/pi-wardrobe/issues/8
 
 Triage: ready-for-agent
-Execution: open
-Claimed by: none
-Branch: none
+Execution: claimed
+Claimed by: run-20261010T112200Z
+Branch: ticket/07-isolated-pi-launch
 Blocked by: 06
 Verified commit: none
 Last attempt: none
