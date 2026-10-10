@@ -7,12 +7,16 @@
 // `list` is read-only: it discovers and validates, and reports whether a
 // snapshot already exists. Capturing happens when a preset is inspected.
 
-import { describeFailure, WardrobeError } from "./diagnostics.mjs";
+import { PlanStore } from "./approval.mjs";
+import { join } from "node:path";
+import { WardrobeDiagnostic, describeFailure, WardrobeError } from "./diagnostics.mjs";
 import { resolveSelector } from "./identity.mjs";
 import { renderResult } from "./render.mjs";
+import { captureSource } from "./discover.mjs";
+import { planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
-const COMMANDS = ["list", "show", "explain"];
+const COMMANDS = ["list", "show", "explain", "install"];
 
 const FIELD_KINDS = {
   schemaVersion: "metadata",
@@ -42,15 +46,37 @@ function agentDir(env) {
   return dir;
 }
 
+/** Parse `--flag value` pairs out of a command's arguments. */
+function parseArgs(tokens) {
+  const positional = [];
+  const flags = new Map();
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.startsWith("--")) {
+      const next = tokens[index + 1];
+      if (next === undefined || next.startsWith("--")) {
+        flags.set(token.slice(2), true);
+      } else {
+        flags.set(token.slice(2), next);
+        index += 1;
+      }
+      continue;
+    }
+    positional.push(token);
+  }
+  return { positional, flags };
+}
+
 /**
  * Execute one /wardrobe invocation.
  *
- * @returns {{ok: boolean, command: string, result: object}}
+ * @returns {Promise<{ok: boolean, command: string, result: object}>}
  */
-export function runCommand(input, { env = process.env } = {}) {
+export async function runCommand(input, { env = process.env } = {}) {
   const args = String(input ?? "").trim();
-  const [name = "", ...rest] = args.split(/\s+/).filter(Boolean);
+  const [name = "", ...tokens] = args.split(/\s+/).filter(Boolean);
   const command = name || "list";
+  const { positional, flags } = parseArgs(tokens);
 
   if (!COMMANDS.includes(command)) {
     return failure(
@@ -65,6 +91,12 @@ export function runCommand(input, { env = process.env } = {}) {
 
   try {
     const dir = agentDir(env);
+    if (command === "install") {
+      // Awaited inside the try: a rejected promise must still become a
+      // reported refusal rather than an unhandled error in the session.
+      return await install(command, positional[0] ?? null, flags, { dir, env });
+    }
+
     const store = new PresetStore(dir);
     const { presets, rejected } = discover(sourceDirs(dir, env));
 
@@ -72,7 +104,7 @@ export function runCommand(input, { env = process.env } = {}) {
       return list(command, store, presets, rejected);
     }
 
-    const selector = rest.join(" ");
+    const selector = positional.join(" ");
     if (!selector) {
       return failure(
         command,
@@ -105,6 +137,109 @@ export function runCommand(input, { env = process.env } = {}) {
   } catch (error) {
     return failure(command, error);
   }
+}
+
+/**
+ * Produce — never perform — an install.
+ *
+ * Discovery captures the source and reads registry metadata. Nothing is
+ * installed and no configuration is changed, whether the user approves,
+ * declines, or cancels.
+ */
+async function install(command, source, flags, { dir, env }) {
+  if (!source) {
+    return failure(
+      command,
+      WardrobeError.from("install needs a source", [], "e.g. npm:@scope/preset@1.0.0 or git:<url>@<sha>")
+    );
+  }
+  const plans = new PlanStore(dir);
+  const captured = await captureSource(source, {
+    workDir: join(dir, "wardrobe", "captures"),
+    env: {
+      ...env,
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_NOSYSTEM: "1",
+    },
+    registry: env.WARDROBE_REGISTRY,
+  });
+
+  const wanted = typeof flags.get("preset") === "string" ? flags.get("preset") : null;
+  if (captured.presets.length === 0) {
+    return failure(
+      command,
+      WardrobeError.from("source declares no presets", [
+        new WardrobeDiagnostic({
+          path: "",
+          reason: `${captured.locator} contains no valid preset.json`,
+        }),
+      ])
+    );
+  }
+  if (wanted === null && captured.presets.length > 1) {
+    return failure(
+      command,
+      WardrobeError.from(
+        `source declares ${captured.presets.length} presets; explicit selection is required`,
+        captured.presets.map(
+          (preset) =>
+            new WardrobeDiagnostic({
+              path: "",
+              reason: `candidate: ${preset.path} (${preset.definition.name})`,
+            })
+        ),
+        `re-run with --preset <path>, e.g. --preset ${captured.presets[0].path}`
+      )
+    );
+  }
+  const preset = wanted
+    ? captured.presets.find((entry) => entry.path === wanted)
+    : captured.presets[0];
+  if (!preset) {
+    return failure(
+      command,
+      WardrobeError.from("no preset at that path", [], `available: ${captured.presets.map((p) => p.path).join(", ")}`)
+    );
+  }
+
+  const sealed = await planFor({ captured, preset, registry: env.WARDROBE_REGISTRY, env });
+  const quoted = typeof flags.get("confirm") === "string" ? flags.get("confirm") : null;
+  let state = "awaiting-approval";
+  let approved = null;
+  if (quoted !== null) {
+    if (quoted !== sealed.digest) {
+      return failure(
+        command,
+        WardrobeError.from("approval digest does not match the plan", [
+          new WardrobeDiagnostic({
+            path: "/confirm",
+            reason: `you quoted ${quoted}, the plan is ${sealed.digest}`,
+          }),
+          new WardrobeDiagnostic({
+            path: "",
+            reason: "the source or its artifacts changed since the plan was displayed",
+          }),
+        ])
+      );
+    }
+    approved = plans.approve({ planId: sealed.planId, digest: sealed.digest });
+    state = "approved";
+  }
+  plans.save(sealed);
+
+  return {
+    ok: true,
+    command,
+    result: {
+      ok: true,
+      command,
+      state,
+      plan: sealed,
+      approvedAt: approved?.approved?.at ?? null,
+      installed: false,
+      active: false,
+    },
+  };
 }
 
 function list(command, store, presets, rejected) {

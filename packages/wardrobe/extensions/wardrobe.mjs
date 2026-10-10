@@ -13,7 +13,7 @@ export default function (pi) {
   pi.registerCommand("wardrobe", {
     description: "Inspect Wardrobe presets: list, show, explain",
     handler: async (args, ctx) => {
-      const entry = withText(runCommand(args));
+      const entry = withText(await runCommand(args));
       ctx.ui.notify(entry.text, entry.ok ? "info" : "error");
       // A structured record keeps the result machine-readable for scripting and
       // for checks that do not scrape terminal output.

@@ -4,7 +4,8 @@
 // the fixture ever installs or executes is defined here, and each script writes
 // markers into a fixture-owned log path.
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { ensureDir } from "./fsx.mjs";
 
 /**
  * An extension that registers an observable tool and command and reports its
@@ -69,7 +70,10 @@ ${exitCode ? `process.exit(${exitCode});` : ""}
 }
 
 /** Write a fixture package directory and return its path. */
-export function writeFixturePackage(dir, { name, version, markerLog, source, exitCode, extensionLog }) {
+export function writeFixturePackage(
+  dir,
+  { name, version, markerLog, source, exitCode, extensionLog, extraFiles }
+) {
   const manifest = {
     name,
     version,
@@ -84,5 +88,10 @@ export function writeFixturePackage(dir, { name, version, markerLog, source, exi
     postinstallSource({ markerLog, source, exitCode })
   );
   writeFileSync(join(dir, "extension.mjs"), extensionSource({ eventsLog: extensionLog }));
+  for (const [file, contents] of Object.entries(extraFiles ?? {})) {
+    const target = join(dir, file);
+    ensureDir(dirname(target));
+    writeFileSync(target, contents);
+  }
   return { dir, manifest };
 }

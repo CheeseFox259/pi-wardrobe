@@ -141,17 +141,24 @@ export function discover(dirs) {
   return { presets, rejected };
 }
 
-/** Declarations at a source root or one level below it. */
+const SKIP_DIRS = new Set([".git", "node_modules"]);
+
+/**
+ * Every `preset.json` under a source root.
+ *
+ * The tree is walked rather than probed at a fixed depth: a repository may hold
+ * `presets/<name>/preset.json`, and a one-level rule would silently hide those.
+ */
 function findDeclarations(root) {
   const found = [];
-  const collect = (dir) => {
+  const walk = (dir) => {
     const direct = join(dir, PRESET_FILE);
     if (existsSync(direct)) found.push(direct);
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || SKIP_DIRS.has(entry.name)) continue;
+      walk(join(dir, entry.name));
+    }
   };
-  collect(root);
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    collect(join(root, entry.name));
-  }
+  walk(root);
   return found;
 }

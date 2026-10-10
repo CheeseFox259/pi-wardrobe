@@ -12,6 +12,16 @@ import { writeFixturePackage } from "./payloads.mjs";
 
 const DEFAULT_NAME = "wardrobe-fixture";
 
+/** The declaration the published fixture preset ships. */
+const DEFAULT_PRESET = {
+  schemaVersion: 1,
+  id: "published-fixture",
+  name: "Published Fixture",
+  version: "3.0.0",
+  compatibility: { pi: ">=1.1.0 <2.0.0" },
+  packages: { itself: { source: "." } },
+};
+
 export class NpmRegistryFixture {
   constructor({ sandbox, server, name, versions, tarballs, markerLog, extensionLog }) {
     this.sandbox = sandbox;
@@ -30,6 +40,13 @@ export class NpmRegistryFixture {
     versions = [
       { version: "1.0.0", exitCode: 0 },
       { version: "2.0.0", exitCode: 17 },
+      // A version that ships a preset definition, for import checks that need a
+      // published package without running an install script.
+      {
+        version: "3.0.0",
+        exitCode: 0,
+        extraFiles: { "preset.json": `${JSON.stringify(DEFAULT_PRESET, null, 2)}\n` },
+      },
     ],
   }) {
     const markerLog = sandbox.markerLog;
@@ -59,6 +76,7 @@ export class NpmRegistryFixture {
         source: "npm",
         exitCode: spec.exitCode,
         extensionLog,
+        extraFiles: spec.extraFiles,
       });
       // --ignore-scripts keeps the pack step itself from running the fixture's
       // deliberately failing postinstall.

@@ -14,6 +14,8 @@ export function renderResult(result) {
       return renderShow(result);
     case "explain":
       return renderExplain(result);
+    case "install":
+      return renderPlan(result);
     default:
       return `${result.command}: done`;
   }
@@ -50,6 +52,28 @@ function renderShow(result) {
     `  declared resources: ${(definition.resources ?? []).map((r) => r.package).join(", ") || "(none)"}`
   );
   lines.push(`  state: ${preset.state}  installed: ${result.installed}  active: ${result.active}`);
+  return lines.join("\n");
+}
+
+function renderPlan(result) {
+  const plan = result.plan;
+  const lines = [
+    `Review plan ${plan.planId} for ${plan.declaration.name} ${plan.declaration.version}`,
+    `  state: ${result.state}  installed: ${result.installed}  active: ${result.active}`,
+    `  source: ${plan.source.kind} ${plan.source.locator} (declaration ${plan.source.declarationPath})`,
+  ];
+  if (plan.source.commit) lines.push(`  commit: ${plan.source.commit}`);
+  if (plan.source.integrity) lines.push(`  integrity: ${plan.source.integrity}`);
+  lines.push("  would install:");
+  for (const surface of plan.installationSurfaces) {
+    lines.push(
+      `    ${surface.alias}: ${surface.source} -> ${surface.artifact?.tarball ?? surface.resolvesTo ?? surface.artifact?.url ?? "?"}${surface.installsCode ? "  (runs install script)" : ""}`
+    );
+  }
+  lines.push("  would load:");
+  for (const surface of plan.loadSurfaces) lines.push(`    ${surface.surface}  (from ${surface.from})`);
+  lines.push(`  digest: ${plan.digest}`);
+  lines.push(`  approve with: /wardrobe install <source> --confirm ${plan.digest}`);
   return lines.join("\n");
 }
 

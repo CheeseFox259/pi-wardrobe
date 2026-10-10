@@ -4,84 +4,71 @@
 // repository, so `pi install git:http://127.0.0.1:<port>/...@<full-sha>`
 // exercises real Git cloning and ref reconciliation rather than local-path
 // loading.
-import { existsSync } from "node:fs";
-import { writeFileSync } from "node:fs";
+
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ensureDir, findDir, readJson } from "./fsx.mjs";
+import { buildGitRepo } from "./git-repo.mjs";
 import { writeFixturePackage } from "./payloads.mjs";
 
 const REPO_NAME = "wardrobe-git-fixture";
-const BARE_DIRNAME = `${REPO_NAME}.git`;
 
 export class GitSourceFixture {
-  constructor({ sandbox, server, commits, markerLog, extensionLog }) {
+  constructor({ sandbox, server, commits, markerLog, extensionLog, repo }) {
     this.sandbox = sandbox;
     this.server = server;
     this.commits = commits;
     this.markerLog = markerLog;
     this.extensionLog = extensionLog;
+    this.repo = repo;
   }
 
   static async create({ sandbox, server }) {
     const markerLog = sandbox.markerLog;
     const extensionLog = sandbox.extensionLog;
-    const git = (args, cwd) =>
-      sandbox.runner.run("git", args, {
-        cwd,
-        env: sandbox.childEnv(),
-      }).then((result) => {
-        if (result.code !== 0) {
-          throw new Error(
-            `git ${args.join(" ")} failed (${result.code})\n${result.stderr}`
-          );
-        }
-        return result.stdout.trim();
-      });
 
-    const work = join(sandbox.work, "git-source");
-    ensureDir(work);
-    await git(["init", "-b", "main"], work);
-    await git(["config", "user.email", "fixture@example.invalid"], work);
-    await git(["config", "user.name", "Wardrobe Fixture"], work);
-    await git(["config", "commit.gpgsign", "false"], work);
-
-    const commits = {};
-    for (const revision of ["v1", "v2"]) {
+    // Each commit is authored in its own scratch directory so the files of a
+    // commit are explicit rather than whatever the previous one left behind.
+    const revisions = ["v1", "v2"];
+    const commits = [];
+    for (const revision of revisions) {
       const version = revision === "v1" ? "1.0.0" : "2.0.0";
-      writeFixturePackage(work, {
+      const stage = join(sandbox.work, `stage-${revision}`);
+      ensureDir(stage);
+      writeFixturePackage(stage, {
         name: REPO_NAME,
         version,
         markerLog,
         source: "git",
         extensionLog,
       });
-      writeFileSync(join(work, "revision.txt"), `${revision}\n`);
-      await git(["add", "-A"], work);
-      await git(["commit", "-m", `fixture ${revision}`], work);
-      commits[revision] = await git(["rev-parse", "HEAD"], work);
+      writeRevision(stage, revision);
+      commits.push({ message: `fixture ${revision}`, from: stage });
     }
 
-    const servedDir = join(sandbox.webroot, "git");
-    ensureDir(servedDir);
-    const bare = join(servedDir, BARE_DIRNAME);
-    await git(["clone", "--bare", work, bare]);
-    // Dumb HTTP needs a pre-generated ref advertisement.
-    await git(["update-server-info"], bare);
-
-    server.serveStatic("/git", servedDir);
+    const repo = await buildGitRepo({
+      sandbox,
+      server,
+      name: REPO_NAME,
+      commits: commits.map(({ message, from }) => ({
+        message,
+        files: readTree(from),
+      })),
+    });
 
     return new GitSourceFixture({
       sandbox,
       server,
-      commits,
+      commits: Object.fromEntries(revisions.map((rev, index) => [rev, repo.commits[index]])),
       markerLog,
       extensionLog,
+      repo,
     });
   }
 
   /** A Pi-supported Git source URL pinned to a full commit SHA. */
   sourceAt(sha) {
-    return `git:${this.server.origin}/git/${BARE_DIRNAME}@${sha}`;
+    return this.repo.sourceAt(sha);
   }
 
   sourceFor(revision) {
@@ -101,4 +88,22 @@ export class GitSourceFixture {
         readJson(join(dir, "package.json")).name === REPO_NAME
     );
   }
+}
+
+function writeRevision(stage, revision) {
+  writeFileSync(join(stage, "revision.txt"), `${revision}\n`);
+}
+
+/** Flatten a staged directory into the file map `buildGitRepo` commits. */
+function readTree(root) {
+  const files = {};
+  const walk = (dir, prefix) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(join(dir, entry.name), relative);
+      else files[relative] = readFileSync(join(dir, entry.name), "utf8");
+    }
+  };
+  walk(root, "");
+  return files;
 }

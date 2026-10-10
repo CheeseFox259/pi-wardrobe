@@ -14,6 +14,7 @@ import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_EVIDENCE_DIR, EvidenceRecorder } from "./lib/evidence.mjs";
+import { buildGitRepo } from "./lib/git-repo.mjs";
 import { GitSourceFixture } from "./lib/git-source.mjs";
 import { LoopbackServer } from "./lib/http.mjs";
 import { NpmRegistryFixture } from "./lib/npm-registry.mjs";
@@ -86,6 +87,13 @@ export async function createFixtureHarness({
       evidence: recorder,
 
       record: (name, details) => recorder.record(name, details),
+
+      /**
+       * Build and serve an additional controlled repository. Used by checks that
+       * need repositories the shipped fixture does not provide, such as
+       * multi-preset repositories or ones whose resources must be refused.
+       */
+      gitRepo: (name, commits) => buildGitRepo({ sandbox, server, name, commits }),
 
       agentPath: (name) => sandbox.agentPath(name),
       settings: (name) => readJson(`${sandbox.agentPath(name)}/settings.json`),
