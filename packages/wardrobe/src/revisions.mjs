@@ -37,7 +37,13 @@ export function revisionStore(agentDir) {
   };
 }
 
-/** Diagnose every record, in stored order. */
+/**
+ * Diagnose every record, in stored order.
+ *
+ * The plans each revision was built from come back with the reports: a caller
+ * that goes on to launch a revision needs the plan it was measured against, and
+ * re-reading the store for it would be a second, racy read.
+ */
 export async function diagnoseAll(agentDir, { env }) {
   const { records, unreadable, plans } = revisionStore(agentDir);
   const reports = [];
@@ -46,7 +52,7 @@ export async function diagnoseAll(agentDir, { env }) {
       await diagnoseRevision(record, { env, plan: plans.get(record.planId) ?? null })
     );
   }
-  return { reports, unreadable };
+  return { reports, unreadable, plans };
 }
 
 /** Diagnose the revisions belonging to one preset identity. */

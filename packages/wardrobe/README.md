@@ -1,7 +1,8 @@
 # @pi-wardrobe/manager
 
 The Wardrobe preset manager for Pi. It registers exactly one command,
-`/wardrobe`, and nothing else.
+`/wardrobe`, and nothing else. It also ships a standalone `wardrobe` launcher,
+which starts a verified revision in a new process and nothing in this one.
 
 ## Command surface
 
@@ -18,15 +19,19 @@ The Wardrobe preset manager for Pi. It registers exactly one command,
 | `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive, and measures its lock. A different digest is refused and installs nothing |
 | `/wardrobe status [revision]` | Every installed revision, one line each: the state the install recorded beside the state measured now. No selector means the whole store |
 | `/wardrobe doctor [revision]` | The full diagnosis per revision: configuration, selected-resource content, installed code, baseline and declared runtime data, with every difference named |
+| `/wardrobe use <revision>` | The launch plan for using a revision in a **new** process: what would load, what would install and run, and the exact command. Starts nothing, and is refused while the revision is busy |
 
 `list`, `show`, `explain` and `status` also report installed revisions, so the
 declared shape of a preset and the state of any revision built from it are
 never merged into one claim. `show` and `explain` match on the source-qualified
 identity of the declaration they were asked about: a local declaration that
 shares an id with an installed revision reports no revision of its own rather
-than borrowing another source's state. A revision addresses by its revision id, its source-qualified
-identity (`git:…@<sha>#<id>`), or its preset name; an ambiguous name is
-refused with the ids that do exist rather than resolved to a guess.
+than borrowing another source's state.
+
+`status`, `doctor` and `use` address a revision by its revision id, its
+source-qualified identity (`git:…@<sha>#<id>`), or its preset name. An
+ambiguous name is refused with the ids that do exist rather than resolved to a
+guess.
 
 ## Composition and provenance
 
@@ -92,6 +97,59 @@ package roots.
   ships the declaration. A local snapshot with no pinned native source is
   refused, because Pi does not install a local package's dependencies and the
   approved artifacts would otherwise not be what is installed.
+
+## Launching a revision
+
+The standalone `wardrobe` command starts a verified revision. It lives in
+`packages/wardrobe/bin/wardrobe.mjs` and is exposed as the package's `bin`.
+
+```sh
+wardrobe run <revision> [args…]      # start it; everything after -- is Pi's
+wardrobe use <revision>              # print the launch plan and start nothing
+wardrobe status | doctor | list      # the same reads, as JSON or text
+```
+
+The manager's own directory is named with `--agent-dir` or `WARDROBE_AGENT_DIR`,
+and `PI_CODING_AGENT_DIR` is deliberately not accepted: Pi exports it to every
+process it starts, so honouring it would mean launching into a caller's own
+environment whenever the launcher was run from inside a session. Without an
+explicit directory the launcher refuses.
+
+From inside a Pi session, `wardrobe use` is the command to run: it starts
+nothing, so it cannot embed another TUI. `wardrobe run` starts a real
+interactive process and belongs in a terminal of its own.
+
+- **The launch is isolated.** Pi is started with `PI_CODING_AGENT_DIR` set to
+  the revision's own directory, never the user's, and always with an explicit
+  session directory — the revision's own unless `--session <path>` names
+  another. Nothing is copied or symlinked out of the user's directory: a
+  revision has no credential of yours in it, and `pi` creates its own empty
+  store there as it would anywhere else.
+- **Selection is the only thing that is written.** Launching rewrites the
+  revision's `settings.json` so exactly the approved resources load, using Pi's
+  own package filters and `defaultTools`. That file is outside the locked code
+  roots, so activating a revision never invalidates its lock. A refused or
+  failed launch puts the file back as it was.
+- **Nothing is hidden.** Before the user's terminal is handed over, the
+  launcher starts a real Pi against the activated revision in RPC mode and asks
+  what it loaded. A selected skill or prompt that registered nothing, a command
+  registered by two different resources, and tool requirements that could not
+  be confirmed are all reported. Resources Pi discovers outside the revision —
+  `~/.agents/skills`, a project's `.agents/skills` — are named too, because a
+  launch that quietly inherited part of someone else's environment would be
+  hiding the one thing it exists to make visible.
+- **One revision, one writer.** A run takes a lease on the revision before
+  anything is written and releases it when Pi exits, however it exits. A second
+  run of the same revision is refused and names the holder; a different
+  revision runs at the same time. A lease whose process is gone is reported as
+  stale and replaced; a live one is never taken.
+- **The child's lifecycle is the launcher's.** The working directory, the
+  arguments after `--`, SIGINT and SIGTERM, and the exit status all belong to
+  the Pi process, and the launcher reports them in a run record under
+  `<agentDir>/wardrobe/runs/`.
+
+A revision that no longer measures as its own lock is not launched at all: the
+refusal names the drift, and the revision is left exactly as it was.
 
 ## Revision locks and drift
 
@@ -262,6 +320,9 @@ npm test
 - `test/revision-lock-doctor.test.mjs` — measuring installed revisions, the
   exclusions a fingerprint makes, and drift, baseline, compatibility and
   missing-revision diagnoses
+- `test/isolated-pi-launch.test.mjs` — starting a revision through the
+  standalone launcher: what loaded, what was isolated, who held the lease, and
+  what the child process did
 
 Tracked by
-[issue #14](https://github.com/CheeseFox259/pi-wardrobe/issues/14).
+[issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).

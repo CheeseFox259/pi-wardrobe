@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Wardrobe preset manager for Pi: discover, review and inspect preset declarations.",
   "license": "MIT",
+  "bin": {
+    "wardrobe": "bin/wardrobe.mjs"
+  },
   "pi": {
     "extensions": ["extensions/wardrobe.mjs"],
     "skills": [],
@@ -13,6 +16,6 @@
   },
   "wardrobe": {
     "kind": "manager",
-    "commands": ["list", "show", "explain"]
+    "commands": ["list", "show", "explain", "install", "status", "doctor", "use"]
   }
 }

@@ -21,6 +21,8 @@ export function renderResult(result) {
       return renderStatus(result);
     case "doctor":
       return renderDoctor(result);
+    case "use":
+      return renderUse(result);
     default:
       return `${result.command}: done`;
   }
@@ -171,6 +173,47 @@ function renderStatus(result) {
   lines.push(
     "  intended: the approved configuration;  observed: what is on disk now;  launchable: false (a launch is a separate, verified step)"
   );
+  return lines.join("\n");
+}
+
+/**
+ * The launch plan.
+ *
+ * What a launch would add, what it would run, and what it explicitly does not
+ * do. Nothing here is a promise that the launch will succeed beyond the state
+ * the doctor just measured.
+ */
+function renderUse(result) {
+  const plan = result.launchPlan;
+  const lines = [
+    `Launch plan for ${plan.preset.name ?? "?"} ${plan.preset.version ?? ""} (revision ${plan.revision})`,
+    `  state: ${plan.state}  lock: ${plan.lock ? plan.lock.slice(0, 16) : "none"}`,
+    `  this is a plan: nothing was started, and nothing runs inside this session`,
+    `  agent dir: ${plan.agentDir}`,
+    `  session dir: ${plan.sessionDir.path}${plan.sessionDir.explicit ? " (chosen explicitly)" : " (revision-owned)"}`,
+  ];
+  lines.push("  would load:");
+  if (plan.differences.resources.length === 0) lines.push("    (nothing: no effective selector selects a resource)");
+  for (const entry of plan.differences.resources) lines.push(`    ${entry}`);
+  if (plan.differences.tools.length > 0) {
+    lines.push("  would set tool selection:");
+    for (const entry of plan.differences.tools) lines.push(`    ${entry}`);
+  }
+  lines.push("  would install nothing and would run:");
+  for (const entry of plan.differences.packages) {
+    lines.push(`    ${entry.alias}: ${entry.source}${entry.installsCode ? "  (runs install-time code)" : ""}`);
+  }
+  if (plan.differences.packages.length === 0) lines.push("    (no packages)");
+  lines.push(
+    `  code: ${plan.differences.code.files} locked file(s) under ${plan.differences.code.roots.join(", ") || "(no roots)"}` +
+      `${plan.differences.code.packages.length ? ` — ${plan.differences.code.packages.length} package root(s)` : ""}`
+  );
+  for (const diagnostic of result.diagnostics ?? []) {
+    lines.push(`  diagnostic: ${diagnostic.reason}`);
+  }
+  lines.push(`  launch with: ${plan.command}`);
+  lines.push("  this does not:");
+  for (const entry of plan.doesNot) lines.push(`    - ${entry}`);
   return lines.join("\n");
 }
 

@@ -18,11 +18,13 @@ import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
 import { installApprovedPlan } from "./install.mjs";
 import { diagnoseAll, diagnosePreset, selectRevision } from "./revisions.mjs";
+import { launchPlanOf, preflightLaunch } from "./launch.mjs";
+import { isStale, leaseReason, LeaseStore } from "./lease.mjs";
 import { stagingViewOf } from "./staging.mjs";
 import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
-const COMMANDS = ["list", "show", "explain", "install", "status", "doctor"];
+const COMMANDS = ["list", "show", "explain", "install", "status", "doctor", "use"];
 
 const FIELD_KINDS = {
   schemaVersion: "metadata",
@@ -126,6 +128,11 @@ export async function runCommand(input, { env = process.env } = {}) {
     }
     if (command === "doctor") {
       return await doctor(command, positional.join(" "), { dir, env });
+    }
+    if (command === "use") {
+      // Awaited inside the try, so a refused revision is reported rather than
+      // thrown at the session.
+      return await use(command, positional.join(" "), flags, { dir, env });
     }
 
     const store = new PresetStore(dir);
@@ -401,6 +408,69 @@ async function doctor(command, selector, { dir, env }) {
     state: reportsSummary(chosen),
     revisions: chosen,
     unreadable,
+  });
+}
+
+/**
+ * The launch plan for using a revision in a new process.
+ *
+ * This is a plan, not a launch. It starts nothing, so it cannot embed another
+ * TUI, and it says what a launch would add rather than claiming to remove
+ * anything an older session left behind.
+ */
+async function use(command, selector, flags, { dir, env }) {
+  if (!selector) {
+    return failure(
+      command,
+      WardrobeError.from(
+        "/wardrobe use needs a revision",
+        [],
+        "e.g. /wardrobe use <revision|preset> — see /wardrobe status for what is installed"
+      )
+    );
+  }
+  const runId = `plan-${Date.now().toString(36)}`;
+  const prepared = await preflightLaunch({
+    agentDir: dir,
+    selector,
+    env,
+    runId,
+    sessionPath: typeof flags.get("session") === "string" ? flags.get("session") : null,
+  });
+  // A lease that cannot be read is held, not absent: ownership that cannot be
+  // established is not ownership that has been released.
+  const held = new LeaseStore(dir).read(prepared.report.revision);
+  if (held && !isStale(held)) {
+    return failure(
+      command,
+      WardrobeError.from(
+        `revision ${prepared.report.revision} is busy`,
+        [
+          new WardrobeDiagnostic({
+            path: "/leases",
+            reason: leaseReason(held),
+          }),
+          new WardrobeDiagnostic({
+            path: "",
+            reason: "one revision is one writer; a launch plan for a busy revision would be a plan nobody can follow",
+          }),
+        ],
+        "wait for it to finish, or plan a different revision"
+      )
+    );
+  }
+  const plan = launchPlanOf({
+    report: prepared.report,
+    plan: prepared.plan,
+    sessionDir: prepared.sessionDir,
+    agentDir: dir,
+  });
+  return success(command, {
+    state: prepared.report.state,
+    launchPlan: plan,
+    diagnostics: prepared.diagnostics.map((entry) => entry.toJSON()),
+    installed: false,
+    active: false,
   });
 }
 
