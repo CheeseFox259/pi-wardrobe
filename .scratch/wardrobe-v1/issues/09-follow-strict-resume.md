@@ -5,9 +5,9 @@ Acceptance source: remote
 Spec: https://github.com/CheeseFox259/pi-wardrobe/issues/8
 
 Triage: ready-for-agent
-Execution: open
-Claimed by: none
-Branch: none
+Execution: claimed
+Claimed by: run-20261012T090618Z
+Branch: ticket/09-bindings-resume
 Blocked by: 07
 Verified commit: none
 Last attempt: none
