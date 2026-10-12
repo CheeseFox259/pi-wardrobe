@@ -4,6 +4,7 @@
 //   wardrobe run <revision> [args…]   start a verified revision in a new process
 //     --agent-dir <path>  the directory whose revisions this is about
 //     --session <path>    use this session directory instead of the revision's
+//     --resume <path>     continue a session Pi already persisted
 //     --no-probe          start without observing the revision first (debugging)
 //   wardrobe use <revision>           print the launch plan and start nothing
 //
@@ -132,6 +133,9 @@ async function run(selector, rest, flags, { env, stderr }) {
       env: { ...env, PI_CODING_AGENT_DIR: agentDir },
       sessionPath: flagValue(flags, "session"),
       cwd: flagValue(flags, "cwd") ?? process.cwd(),
+      // Resume continues a conversation Pi already persisted; it is a different
+      // thing from a session directory, which is where new ones are kept.
+      resume: flagValue(flags, "resume"),
       probe: flags.get("no-probe") !== true,
     });
     // Preflight findings are reported even on a clean exit: a launched

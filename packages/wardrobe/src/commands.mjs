@@ -27,19 +27,20 @@ import {
   runningRevisionOf,
   sessionStateOf,
 } from "./session.mjs";
-import { identityKey, resolveSelector } from "./identity.mjs";
+import { repositoryKeyOf, resolveSelector } from "./identity.mjs";
 import { readOverlay, readUserOverlay } from "./overlay.mjs";
 import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
 import { installApprovedPlan } from "./install.mjs";
-import { diagnoseAll, selectRevision } from "./revisions.mjs";
+import { diagnoseAll, resolvePresetKey, selectRevision } from "./revisions.mjs";
 import { launchPlanOf, preflightLaunch } from "./launch.mjs";
 import { isStale, leaseReason, LeaseStore } from "./lease.mjs";
 import { stagingViewOf } from "./staging.mjs";
+import { bindRequest, BindingStore, LaunchRecords, resolveBinding } from "./binding.mjs";
 import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
-const COMMANDS = ["list", "show", "explain", "install", "status", "doctor", "use"];
+const COMMANDS = ["list", "show", "explain", "install", "status", "doctor", "use", "bind"];
 
 const FIELD_KINDS = {
   schemaVersion: "metadata",
@@ -151,6 +152,11 @@ export async function runCommand(input, { env = process.env, session = null } = 
     if (command === "doctor") {
       return await doctor(command, positional.join(" "), { dir, env });
     }
+    if (command === "bind") {
+      // Awaited inside the try, so a refused binding is reported rather than
+      // thrown at the session.
+      return await bind(command, positional, flags, { dir, env, session });
+    }
     if (command === "use") {
       // Awaited inside the try, so a refused revision is reported rather than
       // thrown at the session.
@@ -183,15 +189,16 @@ export async function runCommand(input, { env = process.env, session = null } = 
     const composed = await composition(resolved.preset, flags, { dir, env });
     // One measurement pass serves both halves of the answer: this preset's own
     // revisions, and the revision this process is running if it is one.
-    const { reports } = await diagnoseAll(dir, { env });
-    const presetKey = `${resolved.preset.source}#${resolved.preset.id}`;
+    const { reports, plans } = await diagnoseAll(dir, { env });
+    const presetKey = repositoryKeyOf({ source: resolved.preset.source, id: resolved.preset.id });
     return success(command, {
       preset: { ...resolved.preset, state: "discovered", snapshotDir },
       definition: resolved.preset.definition,
       ...view(composed),
       revisions: reports
-        .filter((report) => identityKey(report.preset) === presetKey)
+        .filter((report) => repositoryKeyOf(report.preset) === presetKey)
         .map(oneLine),
+      bindings: bindingsDesiredBy(dir, reports, plans),
       // The session this is being read inside, where there is one.
       session: session ? sessionStateOf(session.branch()) : null,
       effective: session ? effectiveStateOf(sessionNow(session, { reports })) : null,
@@ -359,6 +366,10 @@ async function install(command, source, flags, { dir, env }) {
     registry: env.WARDROBE_REGISTRY,
     env,
     overlays: userOverlay ? [userOverlay] : [],
+    // A restriction given at review time applies to what is being installed,
+    // not only to what `explain` prints. Otherwise a plan could be approved for
+    // a preset whose requirements the session will not be allowed to meet.
+    restrictions: restrictionsOf(flags),
   });
   const quoted = typeof flags.get("confirm") === "string" ? flags.get("confirm") : null;
   // Without a quoted digest nothing is installed and no configuration changes:
@@ -412,12 +423,25 @@ async function install(command, source, flags, { dir, env }) {
  * `drifted` is reported as exactly that.
  */
 async function status(command, selector, { dir, env, session }) {
-  const { reports, unreadable } = await diagnoseAll(dir, { env });
+  const { reports, unreadable, plans } = await diagnoseAll(dir, { env });
   const selected = selector ? selectRevision(reports, selector, { unreadable }) : null;
   return success(command, {
-    state: selected?.state ?? reportsSummary(reports),
+    // A binding that cannot be satisfied counts against how healthy this is:
+    // reporting the revisions that happen to be installed while a binding is
+    // unmet would let a failed recovery look healthy.
+    state: bindingAwareSummary(
+      dir,
+      reports,
+      plans,
+      selected?.state ?? reportsSummary(reports)
+    ),
     selected: selected ? oneLine(selected) : null,
     revisions: reports.map(oneLine),
+    bindings: new BindingStore(dir).list().map(bindingViewOf),
+    // What each binding would run now, beside what this session is running.
+    // The two are separate facts and a mismatch is the answer.
+    desired: bindingsDesiredBy(dir, reports, plans),
+    latestLaunch: new LaunchRecords(dir).latest(),
     // What this session is actually using, where there is a session to ask.
     // Reported beside what it last recorded wanting, because those are
     // different facts.
@@ -450,12 +474,17 @@ function sessionNow(session, { reports = [] } = {}) {
 
 /** The full diagnosis for one revision, or for every revision. */
 async function doctor(command, selector, { dir, env }) {
-  const { reports, unreadable } = await diagnoseAll(dir, { env });
+  const { reports, unreadable, plans } = await diagnoseAll(dir, { env });
   const selected = selector ? selectRevision(reports, selector, { unreadable }) : reports;
   const chosen = Array.isArray(selected) ? selected : [selected];
   return success(command, {
-    state: reportsSummary(chosen),
+    // A binding that cannot be satisfied is part of how healthy this manager
+    // is: reporting the revisions available while a binding is unmet would let a
+    // failed recovery look healthy.
+    state: bindingAwareSummary(dir, reports, plans, reportsSummary(chosen)),
     revisions: chosen,
+    bindings: new BindingStore(dir).list().map(bindingViewOf),
+    desired: bindingsDesiredBy(dir, reports, plans),
     unreadable,
   });
 }
@@ -466,6 +495,174 @@ async function doctor(command, selector, { dir, env }) {
  * This is a plan, not a launch. It starts nothing, so it cannot embed another
  * TUI, and it says what a launch would add rather than claiming to remove
  * anything an older session left behind.
+ */
+/**
+ * Record what a preset is meant to run.
+ *
+ * A deliberate act: the mode and the target are chosen here, never inferred.
+ * Strict requires a revision to be named, and nothing about this command
+ * approves code — an installation is still an installation.
+ */
+async function bind(command, positional, flags, { dir, env, session = null }) {
+  const store = new BindingStore(dir);
+  const wanted = flags.get("mode");
+  const revision = typeof flags.get("revision") === "string" ? flags.get("revision") : null;
+  const selector = positional[0] ?? null;
+  // Naming a revision is how strict is asked for; naming a mode overrides that.
+  const mode = typeof wanted === "string" ? wanted : revision ? "strict" : "follow";
+
+  if (!selector) {
+    // With no preset named, this is a read: what is bound, and in what mode.
+    const bindings = store.list();
+    return success(command, {
+      mode: "read",
+      bindings: bindings.map(bindingViewOf),
+      latestLaunch: new LaunchRecords(dir).latest(),
+      state: bindings.length === 0 ? "unbound" : "bound",
+      installed: false,
+      active: false,
+    });
+  }
+
+  // A short key is recorded as the canonical identity, so the binding is not
+  // left pointing at something a rename would change.
+  const { reports, plans } = await diagnoseAll(dir, { env });
+  const canonical = resolvePresetKey(selector, reports);
+  if (!canonical.ok) {
+    return failure(
+      command,
+      WardrobeError.from("the preset to bind is not named unambiguously", [
+        new WardrobeDiagnostic({ path: "/bind/preset", reason: canonical.reason }),
+        ...canonical.candidates.map(
+          (entry) => new WardrobeDiagnostic({ path: "/bind/preset", reason: `candidate: ${entry}` })
+        ),
+      ], "equal ids from different sources are not interchangeable")
+    );
+  }
+
+  // The previous binding is read by the canonical key: looking it up by the
+  // short name that was typed would find nothing and silently reset its
+  // history.
+  const previous = store.read(canonical.presetKey);
+  const request = bindRequest({
+    preset: canonical.presetKey,
+    mode,
+    revision,
+    restrictions: listFlags(flags, "restrict-tool"),
+    soft: session ? { persona: session.personaAppended() } : null,
+    previous,
+    sessionId: session?.sessionId ?? null,
+  });
+  if (!request.ok) {
+    return failure(
+      command,
+      WardrobeError.from("the binding cannot be recorded", [
+        new WardrobeDiagnostic({ path: "/bind/mode", reason: request.reason }),
+        ...(mode === "strict"
+          ? [new WardrobeDiagnostic({ path: "", reason: "strict pins one exact revision by name" })]
+          : []),
+      ], "an unknown or ambiguous binding would be resolved by guesswork later")
+    );
+  }
+
+  // Binding a mode says what should be true at the next launch; it does not
+  // make it true now. What is actually available is reported beside it.
+  const resolved = resolveBinding({ binding: request.record, reports, plans });
+  const target = resolved.ok ? reports.find((entry) => entry.revision === resolved.revision.revision) : null;
+  // What the revision this resolves to configures, so a later resume can tell
+  // the same configuration from the same directory.
+  const record = {
+    ...request.record,
+    configurationDigest: target?.lock?.configuration?.digest ?? request.record.configurationDigest,
+  };
+  const written = store.write(record);
+  return success(command, {
+    state: resolved.ok ? "bound" : "bound-unavailable",
+    mode: written.mode,
+    binding: bindingViewOf(written),
+    resolves: resolved.ok
+      ? { revision: resolved.revision.revision, state: resolved.revision.state }
+      : { revision: null, reason: resolved.reason },
+    migration: resolved.migration ?? null,
+    restrictions: resolved.restrictions ?? [],
+    installed: false,
+    active: false,
+  });
+}
+
+/**
+ * What every binding would run right now, and whether it can.
+ *
+ * A binding that cannot be resolved is reported as unmet rather than left out:
+ * an absent line would read like there was nothing to bind.
+ */
+function bindingsDesiredBy(agentDir, reports, plans) {
+  return new BindingStore(agentDir).list().map((binding) => {
+    const resolved = resolveBinding({ binding, reports, plans });
+    return {
+      preset: binding.preset,
+      mode: binding.mode,
+      pinned: binding.revision ?? null,
+      available: resolved.ok,
+      revision: resolved.ok ? resolved.revision.revision : null,
+      state: resolved.ok ? resolved.revision.state : null,
+      reason: resolved.reason,
+      restrictions: resolved.restrictions ?? [],
+      migrations: (binding.migrations ?? []).map((entry) => ({
+        at: entry.at,
+        from: entry.from,
+        to: entry.to,
+        reason: entry.reason,
+      })),
+      unreadable: binding.unreadable ?? null,
+    };
+  });
+}
+
+/** The most serious state, counting a binding that cannot be satisfied. */
+function bindingAwareSummary(agentDir, reports, plans, fallback) {
+  const desired = bindingsDesiredBy(agentDir, reports, plans);
+  if (desired.some((entry) => !entry.available && !entry.unreadable)) return "unmet-binding";
+  if (desired.some((entry) => entry.unreadable)) return "unreadable-binding";
+  return fallback;
+}
+
+/** `--flag a --flag b` as a list, in the order the user wrote them. */
+function listFlags(flags, name) {
+  const value = flags.get(name);
+  if (typeof value !== "string") return [];
+  return value.split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
+/** A binding in report form: intent and evidence, never contents. */
+function bindingViewOf(binding) {
+  return {
+    preset: binding.preset,
+    mode: binding.mode,
+    revision: binding.revision ?? null,
+    configurationDigest: binding.configurationDigest ?? null,
+    restrictions: binding.restrictions ?? [],
+    soft: binding.soft ?? null,
+    lastLaunched: binding.lastLaunched ?? null,
+    durable: binding.durable !== false,
+    boundFromSession: binding.boundFromSession ?? null,
+    migrations: (binding.migrations ?? []).map((entry) => ({
+      at: entry.at,
+      from: entry.from,
+      to: entry.to,
+      mode: entry.mode,
+      reason: entry.reason,
+    })),
+    unreadable: binding.unreadable ?? null,
+  };
+}
+
+/**
+ * The launch plan for using a revision in a new process.
+ *
+ * This is a plan, not a launch. It names what a launch would add and what it
+ * would run, and it says plainly that it neither removes old extension effects
+ * nor runs inside the current session.
  */
 async function use(command, selector, flags, { dir, env, session = null }) {
   if (!selector) {

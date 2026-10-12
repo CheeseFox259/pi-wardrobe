@@ -19,6 +19,7 @@ which starts a verified revision in a new process and nothing in this one.
 | `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive, and measures its lock. A different digest is refused and installs nothing |
 | `/wardrobe status [revision]` | Every installed revision, one line each: the state the install recorded beside the state measured now. No selector means the whole store |
 | `/wardrobe doctor [revision]` | The full diagnosis per revision: configuration, selected-resource content, installed code, baseline and declared runtime data, with every difference named |
+| `/wardrobe bind [preset] [--mode follow\|strict] [--revision <id>]` | Records what a preset is meant to run, and with no preset named, reports every binding, its mode and its migration history. Follow is the default; strict refuses to be recorded without a revision to pin |
 | `/wardrobe use <revision>` | Changes the running session when only preferences differ — tools, model preference, thinking level, appended instructions — and reports what is in effect beside what was intended. When packages, resources or code differ it returns the **new-process launch plan** instead, starts nothing, and is refused while the revision is busy |
 
 `list`, `show`, `explain` and `status` also report installed revisions, so the
@@ -133,6 +134,47 @@ manager's, so `/wardrobe` inside a launched revision finds the revisions rather
 than looking inside itself. The launcher also loads its own extension into the
 process it starts, because a revision with no `/wardrobe` could be neither
 inspected nor reconfigured.
+
+## Bindings, follow and strict
+
+A binding is a durable statement of intent — follow by default, strict when a
+user pins a revision — kept beside the revisions it names. It is not a lease, a
+lock or a session: it says what should be true when a session starts, and a
+later resume checks the world against it.
+
+```sh
+/wardrobe bind <preset> --mode follow              # or simply: /wardrobe bind <preset>
+/wardrobe bind <preset> --mode strict --revision <id>
+/wardrobe bind                                         # what is bound, and how it got there
+```
+
+- **A preset is its repository, not its pin.** A binding is keyed by the
+  canonical source repository plus the declared id, so two revisions of one
+  preset are two revisions of *one* preset and a follow binding can see its own
+  siblings. The commit or version is what a revision adds.
+- **Follow follows approval order, not a version label.** It takes the newest
+  approved, available revision of that preset. A preset may publish 2.0.0 after
+  1.1.0 was approved, and the newest *approved* revision is the one reviewed
+  last. No network lookup and no semver comparison is involved.
+- **Strict never substitutes.** A pinned revision that is missing or drifting
+  refuses, naming the way out — switch to follow, or install and pin another
+  revision deliberately. It never quietly runs something newer.
+- **Migrations are recorded, not guessed.** Each launch writes what it moved
+  between and why, append-only; the first launch of a binding counts as a move
+  from nothing. Old revisions are left intact and old conversations are not
+  rewritten: resuming appends to the session file, and the earlier history is an
+  unchanged prefix of it.
+- **A binding is a file; a session preference is not.** What is transient is a
+  session's soft overrides, because a custom entry alone does not flush a
+  conversation. Startup coordination is a separate, per-process launch record, so
+  nothing claims a conversation is durably bound to a revision.
+
+`wardrobe run --resume <path>` continues a conversation Pi already persisted. The
+path must exist: a session is written by the process that wrote it, so resuming
+one that was never written is refused rather than pointed at nothing.
+
+`status` and `doctor` report bindings, their migrations and the launch records
+beside the revisions they govern.
 
 ## Launching a revision
 
@@ -362,6 +404,9 @@ npm test
 - `test/idle-session-overrides.test.mjs` — applying preferences inside a running
   session and reading back what it is actually using, including what a local
   model provider was asked
+- `test/bindings-resume.test.mjs` — binding a preset, following approval order,
+  refusing a strict mismatch, and persisting a conversation in one process and
+  resuming it in another
 
 Tracked by
 [issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).

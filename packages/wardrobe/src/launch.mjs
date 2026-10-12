@@ -23,7 +23,8 @@ import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { piCliOf } from "./lock.mjs";
 import { leaseViewOf, LeaseStore } from "./lease.mjs";
 import { probeLoadedState, reconcileSelection, selectedResourcesOf } from "./probe.mjs";
-import { diagnoseAll, selectRevision } from "./revisions.mjs";
+import { diagnoseAll, resolvePresetKey, selectRevision } from "./revisions.mjs";
+import { BindingStore, LaunchRecords, recordMigration, resolveBinding } from "./binding.mjs";
 
 /** The built-in tools Pi itself provides, which need no package to register. */
 const BUILTIN_TOOLS = new Set([
@@ -115,16 +116,38 @@ function sessionDirFor({ revisionDir, explicit, runId }) {
 }
 
 /**
- * Decide whether a revision may be launched, and prepare what it would need.
+ * How a resumed session is opened.
  *
- * This is the half of a launch that answers for itself: the revision still has
- * to measure as its own lock, and the plan it was built from still has to be
- * readable. Whether the resources actually load is a separate question, asked
- * by `observeSelection` once the selection has been written.
+ * Resuming names a session Pi already persisted, so it is handed `--session`
+ * and the process continues that conversation rather than starting a new one. A
+ * session that was never persisted cannot be resumed, and Pi is told so instead
+ * of being pointed at a path that does not exist.
+ */
+function sessionArgsFor({ sessionDir, resume }) {
+  if (typeof resume !== "string" || !resume.trim()) return { args: [], resumed: false };
+  const path = resolvePath(resume.trim());
+  if (!existsSync(path)) {
+    throw WardrobeError.from(
+      "the session to resume is not there",
+      [new WardrobeDiagnostic({ path: "/launch/resume", reason: `${path} does not exist` })],
+      "a session is persisted by the process that wrote it; run one first, or start a new session"
+    );
+  }
+  return { args: ["--session", path], resumed: true, path };
+}
+
+/**
+ * Decide what a launch should run, and prepare it.
+ *
+ * A named revision is honoured directly. A named *binding* is resolved through
+ * its mode: follow takes the newest approved available revision of the same
+ * source-qualified preset, strict takes the pinned one or refuses. Whether the
+ * resources actually load is a separate question, asked by `observeSelection`
+ * once the selection has been written.
  *
  * @returns {Promise<{ok: boolean, diagnostics: WardrobeDiagnostic[],
  *   report: object, plan: object, revisionDir: string, sessionDir: object,
- *   activation: object, cli: string}>}
+ *   activation: object, cli: string, binding: object|null, migration: object|null}>}
  */
 export async function preflightLaunch({
   agentDir,
@@ -142,7 +165,40 @@ export async function preflightLaunch({
       "run /wardrobe install <source> --confirm <digest> first"
     );
   }
-  const report = selectRevision(reports, selector, { unreadable });
+  // A binding is recorded against the canonical preset identity, so a short key
+  // has to be resolved to that before it can be looked up.
+  const bindings = new BindingStore(agentDir);
+  const canonical = resolvePresetKey(selector, reports);
+  const binding = canonical.ok ? bindings.read(canonical.presetKey) : null;
+  const resolved = binding
+    ? resolveBinding({ binding, reports, plans })
+    : { ok: true, mode: null, revision: selectRevision(reports, selector, { unreadable }), migration: null, restrictions: [] };
+
+  if (!resolved.ok) {
+    throw WardrobeError.from(
+      `${binding.preset} cannot be launched in ${resolved.mode ?? "its"} mode`,
+      [
+        new WardrobeDiagnostic({ path: "/binding", reason: resolved.reason }),
+        ...(resolved.restrictions ?? []).map(
+          (entry) => new WardrobeDiagnostic({ path: "/restrictions", reason: entry })
+        ),
+        // Strict refuses and offers the way out; it never substitutes a newer
+        // revision for the one that was pinned.
+        ...(resolved.mode === "strict"
+          ? [
+              new WardrobeDiagnostic({
+                path: "",
+                reason:
+                  "the pinned revision was not replaced with a newer one; switch to follow, or install and pin another revision deliberately",
+              }),
+            ]
+          : []),
+      ],
+      "nothing was started and no binding was changed"
+    );
+  }
+
+  const report = resolved.revision;
   const plan = plans.get(report.revision) ?? null;
   const diagnostics = [];
   const revisionDir = report.latest?.agentDir ?? null;
@@ -182,15 +238,21 @@ export async function preflightLaunch({
   const activation = activatedSettingsFor({ plan, inventory: report.latest.installed ?? [] });
 
 
-  // Tools the declaration asked for that this host cannot provide, because the
-  // user or the CLI excluded them.
-  for (const entry of plan.runtime?.tools?.unmet ?? []) {
-    diagnostics.push(
-      new WardrobeDiagnostic({
-        path: "/runtime/tools/unmet",
-        reason: `${entry.tool}: ${entry.reason}`,
-        hint: "the launch proceeds without it; a preset cannot re-enable what the user or CLI excluded",
-      })
+  // A requirement the declaration names and this session cannot satisfy is not
+  // a warning: the review approved a revision that wanted it, and running
+  // without it is a different environment from the one that was approved.
+  const unmet = plan.runtime?.tools?.unmet ?? [];
+  if (unmet.length > 0) {
+    throw WardrobeError.from(
+      "this revision cannot meet its own requirements here",
+      unmet.map(
+        (entry) =>
+          new WardrobeDiagnostic({
+            path: "/runtime/tools/unmet",
+            reason: `${entry.tool}: ${entry.reason}`,
+          })
+      ),
+      "a preset cannot re-enable what the user or CLI excluded; nothing was started"
     );
   }
 
@@ -216,6 +278,8 @@ export async function preflightLaunch({
     sessionDir,
     activation,
     cli: requireCli(env),
+    binding: binding ?? null,
+    migration: resolved.migration ?? null,
   };
 }
 
@@ -303,7 +367,9 @@ export async function runRevision({
   runId = `run-${process.pid}-${Date.now().toString(36)}`,
   stdio = "inherit",
   probe = true,
+  resume = null,
 }) {
+  const bindings = new BindingStore(agentDir);
   const prepared = await preflightLaunch({ agentDir, selector, env, sessionPath, runId, cwd });
   const { report, revisionDir, sessionDir, activation } = prepared;
 
@@ -353,6 +419,10 @@ export async function runRevision({
   let outcome = null;
   let spawnedArgv = null;
   let completed = false;
+  // Decided before the lease is taken: a resume path that is not there is a
+  // refusal, and refusing before acquiring anything cannot leak it.
+  const resuming = sessionArgsFor({ sessionDir, resume });
+
   try {
     // Both processes the launch owns — the probe and the real run — get a
     // session directory that exists before either starts. A plan that starts
@@ -406,7 +476,10 @@ export async function runRevision({
       );
     }
 
-    spawnedArgv = [prepared.cli, ...withManagerExtension(withSessionDir(args, sessionDir))];
+    spawnedArgv = [
+      prepared.cli,
+      ...withManagerExtension(withSessionDir([...resuming.args, ...args], sessionDir)),
+    ];
     child = spawn(execPath, spawnedArgv, {
       stdio,
       // Two directories, deliberately: the revision's own is what Pi runs in,
@@ -445,6 +518,8 @@ export async function runRevision({
     agentDir: revisionDir,
     sessionDir: sessionDir.path,
     sessionExplicit: sessionDir.explicit,
+    resumed: resuming.resumed,
+    resumedSession: resuming.path ?? null,
     cwd,
     argv: [prepared.cli, ...args],
     // What Pi was actually started with, which is not the same list: the
@@ -466,8 +541,31 @@ export async function runRevision({
     settingsChanged: previousSettings !== null && previousSettings !== activationText,
     leaseReleased: released,
     replacedStaleLease: taken.replacedStale ? leaseViewOf(taken.replacedStale) : null,
+    // What this launch was supposed to run, and what it moved between. A launch
+    // record is coordination for one process, not a durable binding.
+    mode: prepared.binding?.mode ?? null,
+    binding: prepared.binding ? prepared.binding.preset : null,
+    migration: prepared.migration ?? null,
   };
   writeRunRecord(agentDir, record);
+  new LaunchRecords(agentDir).write({
+    runId: record.runId,
+    binding: record.binding,
+    mode: record.mode,
+    revision: record.revision,
+    sessionDir: record.sessionDir,
+    startedAt: record.startedAt,
+    endedAt: record.endedAt,
+    exitCode: record.exitCode,
+  });
+  if (prepared.binding && prepared.migration) {
+    bindings.write(
+      recordMigration(
+        bindings.read(prepared.binding.preset) ?? prepared.binding,
+        prepared.migration
+      )
+    );
+  }
 
   return record;
 }

@@ -23,6 +23,8 @@ export function renderResult(result) {
       return renderDoctor(result);
     case "use":
       return result.kind === "soft" ? renderSoftUse(result) : renderUse(result);
+    case "bind":
+      return renderBind(result);
     default:
       return `${result.command}: done`;
   }
@@ -168,6 +170,10 @@ function renderStatus(result) {
     );
   }
   lines.push(...revisionLines(result.revisions));
+  for (const binding of result.bindings ?? []) {
+    lines.push(`  binding: ${binding.preset}  ${describeBinding(binding)}`);
+  }
+  lines.push(...renderDesired(result.desired, result.effective));
   for (const entry of result.unreadable ?? []) {
     lines.push(`  unreadable revision record: ${entry.file} — ${entry.reason}`);
   }
@@ -231,6 +237,95 @@ function describe(value) {
 }
 
 /**
+ * What a preset is bound to.
+ *
+ * Intent and what is available are printed apart: a binding says what should
+ * be true at the next launch, and the resolution says whether it is.
+ */
+function renderBind(result) {
+  if (result.mode === "read") {
+    const lines = [`Wardrobe bindings (${result.state})`];
+    for (const binding of result.bindings) {
+      lines.push(`  ${binding.preset}  ${describeBinding(binding)}`);
+      for (const entry of migrationLines(binding.migrations)) lines.push(`    ${entry}`);
+    }
+    if (result.bindings.length === 0) lines.push("  (none recorded)");
+    if (result.latestLaunch) {
+      lines.push(
+        `  last launch: revision ${result.latestLaunch.revision ?? "(none)"}` +
+          (result.latestLaunch.mode ? ` in ${result.latestLaunch.mode} mode` : "") +
+          ` at ${result.latestLaunch.startedAt}`
+      );
+    }
+    return lines.join("\n");
+  }
+  const binding = result.binding;
+  const lines = [
+    `Bound ${binding.preset}: ${binding.mode}${binding.revision ? ` -> ${binding.revision}` : ""}`,
+    `  durable: ${binding.durable}` +
+      (binding.durable ? "" : "  (made in a session that persists no conversation of its own)"),
+    `  resolves now: ${
+      result.resolves.revision
+        ? `${result.resolves.revision} (${result.resolves.state})`
+        : `unavailable — ${result.resolves.reason}`
+    }`,
+  ];
+  for (const entry of result.restrictions ?? []) lines.push(`  restriction: ${entry}`);
+  for (const entry of migrationLines(binding.migrations)) lines.push(`  ${entry}`);
+  lines.push(
+    "  a binding says what should be true at the next launch; it installs nothing and activates nothing"
+  );
+  return lines.join("\n");
+}
+
+/** What a launch moved between, in one form wherever it is reported. */
+function migrationLines(migrations) {
+  return (migrations ?? []).map(
+    (entry) => `migration: ${entry.at}  ${entry.from ?? "(none)"} -> ${entry.to}  ${entry.reason}`
+  );
+}
+
+/**
+ * What each binding would run, beside what is running now.
+ *
+ * A mismatch between the two is the whole point of reporting both: a binding
+ * that cannot be satisfied, or a session on a revision the binding does not
+ * name, must not read as health.
+ */
+function renderDesired(desired, effective) {
+  if (!desired || desired.length === 0) return [];
+  const lines = ["  bindings resolve to:"];
+  for (const entry of desired) {
+    lines.push(
+      `    ${entry.preset}  ${entry.mode}` +
+        (entry.pinned ? ` pinned to ${entry.pinned}` : "") +
+        (entry.available
+          ? `  -> ${entry.revision} (${entry.state})`
+          : `  -> unavailable: ${entry.reason}`)
+    );
+    for (const restriction of entry.restrictions ?? []) {
+      lines.push(`      restriction: ${restriction}`);
+    }
+    for (const migration of migrationLines(entry.migrations)) {
+      lines.push(`      ${migration}`);
+    }
+    if (effective?.runningRevision && entry.available && effective.runningRevision !== entry.revision) {
+      lines.push(
+        `      mismatch: this session is running ${effective.runningRevision}, the binding names ${entry.revision}`
+      );
+    }
+  }
+  return lines;
+}
+
+function describeBinding(binding) {
+  if (binding.unreadable) return `unreadable (${binding.unreadable})`;
+  const pinned = binding.revision ? ` pinned to ${binding.revision}` : "";
+  const last = binding.lastLaunched ? ` last launched ${binding.lastLaunched}` : " never launched";
+  return `${binding.mode}${pinned}${last}`;
+}
+
+/**
  * The launch plan.
  *
  * What a launch would add, what it would run, and what it explicitly does not
@@ -274,6 +369,10 @@ function renderUse(result) {
 /** The full diagnosis, component by component. */
 function renderDoctor(result) {
   const lines = [`Wardrobe doctor (state: ${result.state})`];
+  for (const binding of result.bindings ?? []) {
+    lines.push(`  binding ${binding.preset}: ${describeBinding(binding)}`);
+  }
+  lines.push(...renderDesired(result.desired, null));
   for (const revision of result.revisions) lines.push(...renderDiagnosis(revision));
   for (const entry of result.unreadable ?? []) {
     lines.push(`  unreadable revision record: ${entry.file} — ${entry.reason}`);

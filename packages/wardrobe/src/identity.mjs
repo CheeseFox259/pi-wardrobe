@@ -93,6 +93,43 @@ export function identityKey({ source, id }) {
 }
 
 /**
+ * A preset's identity, at the level a binding cares about.
+ *
+ * The identity a capture records pins a commit or an exact version, which is
+ * right for a revision and wrong for a preset: two revisions of one preset would
+ * then be two presets, and a follow binding could never see its own siblings.
+ * A preset is its canonical source repository plus its declared id; the pin is
+ * what a revision adds.
+ */
+export function repositoryKeyOf({ source, id }) {
+  return `${repositoryOf(source)}#${id}`;
+}
+
+/**
+ * The canonical repository of a source locator, with any pin removed.
+ *
+ * A pinned Git locator carries its commit twice (`…@<sha>@<sha>`) and a pinned
+ * npm locator carries its version, so both are removed. Only a segment that
+ * looks like a commit or a version goes: a local snapshot path may
+ * legitimately contain an `@`, and a repository is not its own pin.
+ */
+export function repositoryOf(source) {
+  if (typeof source !== "string") return String(source ?? "");
+  let cut = source;
+  for (;;) {
+    const at = cut.lastIndexOf("@");
+    if (at <= 0) return cut;
+    const tail = cut.slice(at + 1);
+    if (!isCommit(tail) && !isVersion(tail)) return cut;
+    cut = cut.slice(0, at);
+  }
+}
+
+const isCommit = (segment) => /^[0-9a-f]{7,40}$/.test(segment);
+const isVersion = (segment) => /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(segment);
+
+
+/**
  * Resolve a command-line selector against the known presets.
  *
  * A short id resolves only when it is unique. An ambiguous short id is refused

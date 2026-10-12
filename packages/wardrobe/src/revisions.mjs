@@ -8,7 +8,7 @@
 import { PlanStore } from "./approval.mjs";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { diagnoseRevision } from "./doctor.mjs";
-import { identityKey } from "./identity.mjs";
+import { identityKey, repositoryKeyOf } from "./identity.mjs";
 import { StagingStore } from "./staging.mjs";
 
 /**
@@ -102,6 +102,36 @@ export function selectRevision(reports, selector, { unreadable = [] } = {}) {
   return matches[0];
 }
 
+
+/**
+ * The canonical identity of one preset, from whatever the user named.
+ *
+ * A short key is accepted only while it is unambiguous: two revisions of the
+ * same declared id from different sources are different presets, and a binding
+ * that guessed between them would pin the wrong one.
+ *
+ * @returns {{ok: true, presetKey: string} | {ok: false, reason: string, candidates: string[]}}
+ */
+export function resolvePresetKey(selector, reports) {
+  // A key printed elsewhere may still carry its pin; a preset is its
+  // repository, so the pin is dropped before anything is compared.
+  const wanted = repositoryKeyOf({ source: String(selector).trim(), id: "" }).replace(/#$/, "");
+  const exact = reports.filter((report) => repositoryKeyOf(report.preset) === wanted);
+  if (exact.length > 0) return { ok: true, presetKey: wanted };
+  const candidates = reports.filter(
+    (report) => report.preset.id === wanted || report.preset.name === wanted
+  );
+  const distinct = [...new Set(candidates.map((report) => repositoryKeyOf(report.preset)))];
+  if (distinct.length === 1) return { ok: true, presetKey: distinct[0] };
+  if (distinct.length > 1) {
+    return {
+      ok: false,
+      reason: `${wanted} names ${distinct.length} presets`,
+      candidates: distinct.sort(),
+    };
+  }
+  return { ok: false, reason: `no installed preset matches ${JSON.stringify(wanted)}`, candidates: [] };
+}
 
 function revisionMatches(report, selector) {
   const wanted = selector.trim();
