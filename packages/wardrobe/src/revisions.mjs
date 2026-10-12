@@ -55,15 +55,6 @@ export async function diagnoseAll(agentDir, { env }) {
   return { reports, unreadable, plans };
 }
 
-/** Diagnose the revisions belonging to one preset identity. */
-export async function diagnosePreset(agentDir, presetKey, { env }) {
-  const { reports, unreadable } = await diagnoseAll(agentDir, { env });
-  return {
-    reports: reports.filter((report) => identityKey(report.preset) === presetKey),
-    unreadable,
-  };
-}
-
 /**
  * One revision from an already-measured set, addressed by revision id, preset
  * identity or preset name.

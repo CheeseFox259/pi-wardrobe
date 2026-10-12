@@ -18,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execPath } from "node:process";
 import { homedir } from "node:os";
 import { dirname, join, parse as parsePath, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { piCliOf } from "./lock.mjs";
 import { leaseViewOf, LeaseStore } from "./lease.mjs";
@@ -65,6 +66,20 @@ function activatedSettingsFor({ plan, inventory }) {
   const settings = { packages };
   const tools = toolSelectionFor(plan);
   if (tools.length > 0) settings.defaultTools = tools;
+  // A declared thinking level belongs in the revision's own settings: a
+  // revision that declares one should run at it rather than at whatever the
+  // host defaults to. It is also load-bearing beyond intent — Pi reads this
+  // setting unguarded, so a revision whose settings omit it cannot build a
+  // request at all.
+  const thinking = plan?.runtime?.thinking?.value ?? null;
+  if (thinking) settings.defaultThinkingLevel = thinking;
+  // Telemetry stays off for a managed revision directory. Two reasons, and the
+  // second is not a preference: Pi 1.1.0 reads this setting unguarded, so a
+  // revision whose settings omit it cannot complete a model turn at all
+  // ("Cannot read properties of undefined (reading 'includes')"). This is the
+  // manager's own directory, not anybody's personal environment, so choosing
+  // here changes no one's baseline.
+  settings.enableInstallTelemetry = false;
   return settings;
 }
 
@@ -212,12 +227,13 @@ export async function preflightLaunch({
  * A revision that does not start here is reported rather than handed to a
  * user, and the caller restores what was there.
  */
-async function observeSelection({ prepared, env, cwd }) {
+async function observeSelection({ prepared, env, cwd, managerAgentDir }) {
   const result = await probeLoadedState({
     cli: prepared.cli,
     agentDir: prepared.revisionDir,
     sessionDir: prepared.sessionDir.path,
-    env,
+    // The probe runs inside the revision too, so it needs the same pointer.
+    env: { ...env, WARDROBE_AGENT_DIR: managerAgentDir },
     cwd,
   });
   if (!result.ok) {
@@ -346,12 +362,17 @@ export async function runRevision({
     prepareSessionDir(sessionDir.path);
     previousSettings = readFileSync(settingsPath, "utf8");
     writeFileSync(settingsPath, activationText);
+    // A revision launches carrying the instructions it declared. The settings
+    // file is not the place for them: a prompt guideline is contributed by the
+    // session, and the session has to be told what this revision asked for
+    // before it can contribute anything.
+    writeLaunchSession({ revisionDir, report: prepared.report, plan: prepared.plan });
 
     // Observe the activated revision in a real process before handing the
     // user's terminal to it. A revision that will not start here is not started
     // at all.
     if (probe) {
-      const seen = await observeSelection({ prepared, env, cwd });
+      const seen = await observeSelection({ prepared, env, cwd, managerAgentDir: agentDir });
       observed = seen.observed;
       diagnostics.push(...seen.diagnostics);
       const tools = unverifiedTools({ plan: prepared.plan, observed });
@@ -385,10 +406,13 @@ export async function runRevision({
       );
     }
 
-    spawnedArgv = [prepared.cli, ...withSessionDir(args, sessionDir)];
+    spawnedArgv = [prepared.cli, ...withManagerExtension(withSessionDir(args, sessionDir))];
     child = spawn(execPath, spawnedArgv, {
       stdio,
-      env: { ...env, PI_CODING_AGENT_DIR: revisionDir },
+      // Two directories, deliberately: the revision's own is what Pi runs in,
+      // and the manager's is where /wardrobe looks for revisions. A session
+      // inside a revision without the second pointer would be unmanaged.
+      env: { ...env, PI_CODING_AGENT_DIR: revisionDir, WARDROBE_AGENT_DIR: agentDir },
       cwd,
     });
     // The lease names the process it started, so a second launcher can say
@@ -427,7 +451,10 @@ export async function runRevision({
     // session directory is made explicit here even when the caller did not
     // name one.
     spawnedArgv,
-    env: { PI_CODING_AGENT_DIR: revisionDir },
+    env: {
+      PI_CODING_AGENT_DIR: revisionDir,
+      WARDROBE_AGENT_DIR: agentDir,
+    },
     diagnostics: diagnostics.map((entry) => entry.toJSON()),
     observed,
     startedAt,
@@ -459,6 +486,33 @@ function writeRunRecord(agentDir, record) {
 }
 
 /**
+ * This manager's own extension, next to the code that is running it.
+ *
+ * A revision's agent directory holds the revision and nothing else, so without
+ * this the launched process would have no `/wardrobe` at all: a session that
+ * cannot be inspected, and cannot adopt a preference, is not the environment
+ * the launcher claims to have started. It is a path to the same manager file,
+ * not a copy, and it is not part of the revision's locked code.
+ */
+export function managerExtensionPath() {
+  return fileURLToPath(new URL("../extensions/wardrobe.mjs", import.meta.url));
+}
+
+/**
+ * The child argv with this manager's command present.
+ *
+ * Extensions are additive, so this is appended rather than swapped in: a
+ * caller who passes their own `-e` gets it *and* `/wardrobe`. Skipping the
+ * manager whenever any extension was named would leave a launched revision
+ * with no command to inspect or reconfigure it with, which is the opposite of
+ * what launching one is for.
+ */
+export function withManagerExtension(args) {
+  const path = managerExtensionPath();
+  return args.includes(path) ? args : [...args, "--extension", path];
+}
+
+/**
  * The child's argv, with the session directory made explicit.
  *
  * Pi keeps its own session store wherever its environment says, so a launch
@@ -472,6 +526,36 @@ function withSessionDir(args, sessionDir) {
   const named = args.some((arg) => arg === "--session" || arg.startsWith("--session="));
   if (named || args.includes("--session-dir")) return args;
   return [...args, "--session-dir", sessionDir.path];
+}
+
+/**
+ * What a launched revision starts with, written beside the revision.
+ *
+ * This is declared runtime data, not locked code: it records what the revision
+ * asked for, so a session can contribute it without re-deriving the plan, and a
+ * later preference change is recorded on the session's own branch instead.
+ */
+function writeLaunchSession({ revisionDir, report, plan }) {
+  const dir = join(revisionDir, "wardrobe");
+  mkdirSync(dir, { recursive: true });
+  const persona = (plan.persona?.append ?? []).map((entry) =>
+    typeof entry === "string" ? entry : entry.text
+  );
+  writeFileSync(
+    join(dir, "session.json"),
+    `${JSON.stringify(
+      {
+        revision: report.revision,
+        // A declaration's persona arrives folded with its provenance; a prompt
+        // takes the text.
+        persona,
+        tools: toolSelectionFor(plan),
+        thinking: plan.runtime?.thinking?.value ?? null,
+      },
+      null,
+      2,
+    )}\n`
+  );
 }
 
 /** Create the session directory, or refuse with something a user can act on. */

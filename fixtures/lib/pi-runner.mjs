@@ -223,6 +223,125 @@ export class RpcSession {
 const DRIVER_SOURCE = `import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 
+// A provider that answers locally and needs no credential.
+//
+// Real Pi refuses to run a turn without a model, so a check that wants to
+// observe what a session actually does — the prompt it would send, the tools it
+// declares, a conversation that persists and can be resumed — needs a model
+// that exists. This one is registered by the driver extension and streams a
+// fixed reply, so nothing here reaches a network.
+const LOCAL_PROVIDER = "wardrobe-local";
+const LOCAL_MODEL = "fixture-local";
+const LOCAL_REPLY = "fixture reply";
+// A placeholder, not a credential. Pi refuses to select a model whose provider
+// has no key at all, and this provider streams a fixed reply from this process,
+// so nothing is ever sent to the address below.
+const LOCAL_PLACEHOLDER_KEY = "fixture-local-no-network";
+const LOCAL_PLACEHOLDER_URL = "http://127.0.0.1/never-used";
+
+const localModel = {
+  // A full Model, not only a provider model config: selecting it is done with
+  // pi.setModel(), which resolves a model by identity rather than by name.
+  provider: LOCAL_PROVIDER,
+  api: "anthropic-messages",
+  id: LOCAL_MODEL,
+  name: "Fixture Local",
+  reasoning: true,
+  input: ["text"],
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  contextWindow: 200000,
+  maxTokens: 8192,
+  // Pi reads a model's thinking levels from this map; a model that declares
+  // none is treated as supporting none, and asking for one fails at request
+  // time rather than at selection time.
+  thinkingLevelMap: { off: null, low: "low", medium: "medium", high: "high", xhigh: null, max: null },
+};
+
+const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
+
+/**
+ * The text of a message, whichever shape it arrives in.
+ *
+ * A system message arrives with an empty content string and its real prompt in
+ * named sections — the preamble, the tool listing, appended guidelines — so
+ * reading only content would report an empty prompt and hide everything worth
+ * checking.
+ */
+const textOf = (message) => {
+  if (!message) return null;
+  const parts = [];
+  if (typeof message.content === "string" && message.content) parts.push(message.content);
+  if (Array.isArray(message.content)) {
+    parts.push(
+      message.content.map((block) => (typeof block === "string" ? block : (block?.text ?? ""))).join(""),
+    );
+  }
+  for (const [name, value] of Object.entries(message.sections ?? {})) {
+    if (typeof value === "string" && value) parts.push(name + ":\\n" + value);
+    else if (value && typeof value === "object") parts.push(name + ":\\n" + JSON.stringify(value));
+  }
+  return parts.length === 0 ? (typeof message.content === "string" ? message.content : "") : parts.join("\\n\\n");
+};
+
+/**
+ * Answer one request locally, shaped the way Pi's providers do.
+ *
+ * What arrives here is recorded: the system prompt the session built, the tools
+ * it declared, the reasoning level it asked for. That is how a check observes
+ * effective prompt and tool state without a network call — at the model
+ * boundary, not at the settings that produced it.
+ *
+ * The return value is a stream Pi can consume: an iterator over the events plus
+ * the final message it waits on. A bare async generator is not enough, because
+ * the agent loop asks a stream for its result as well as its events.
+ */
+const localStream = (model, context, options) => {
+  const system = (context?.messages ?? []).find((message) => message.role === "system");
+  appendFileSync(
+    join(process.env.PI_CODING_AGENT_DIR, "fixture-request.jsonl"),
+    JSON.stringify({
+      model: model.provider + "/" + model.id,
+      systemPrompt: textOf(system),
+      // This API declares a session's tools in the system prompt rather than as
+      // an option, so the prompt is where a check must look for them.
+      tools: (options?.tools ?? []).map((tool) => tool?.name ?? String(tool)),
+      reasoning: options?.reasoning ?? null,
+      messageRoles: (context?.messages ?? []).map((message) => message.role),
+    }) + "\\n",
+  );
+  const message = {
+    role: "assistant",
+    content: [{ type: "text", text: LOCAL_REPLY }],
+    api: "anthropic-messages",
+    provider: model.provider,
+    model: model.id,
+    usage: { ...usage },
+    stopReason: "stop",
+    timestamp: Date.now(),
+  };
+  const events = [
+    { type: "start", partial: { ...message, content: [] } },
+    { type: "text_start", contentIndex: 0, partial: { ...message, content: [] } },
+    { type: "text_delta", contentIndex: 0, delta: LOCAL_REPLY, partial: { ...message, content: [] } },
+    { type: "text_end", contentIndex: 0, content: LOCAL_REPLY, partial: message },
+    { type: "done", reason: "stop", message },
+  ];
+  let next = 0;
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next: async () =>
+          next < events.length
+            ? { value: events[next++], done: false }
+            : { value: undefined, done: true },
+      };
+    },
+    result: async () => message,
+    push: () => {},
+    end: () => {},
+  };
+};
+
 const settingsPath = () => join(process.env.PI_CODING_AGENT_DIR, "settings.json");
 const statePath = () => join(process.env.PI_CODING_AGENT_DIR, "fixture-state.jsonl");
 const entriesPath = () => join(process.env.PI_CODING_AGENT_DIR, "fixture-entries.json");
@@ -245,9 +364,66 @@ export default function (pi) {
     handler: async (_args, ctx) => setExtensions(ctx, []),
   });
   pi.registerCommand("fixture-state", {
-    handler: async () => {
-      const state = { tools: pi.getActiveTools(), loads: globalThis.__wardrobeFixtureLoads ?? 0 };
+    handler: async (_args, ctx) => {
+      // What is in effect right now, not what was requested: the active tools,
+      // the thinking level and the prompt the next model request would carry.
+      // allTools separates a tool that is registered but not active from one
+      // that does not exist here at all.
+      const state = {
+        tools: pi.getActiveTools(),
+        allTools: pi.getAllTools().map((tool) => tool.name),
+        loads: globalThis.__wardrobeFixtureLoads ?? 0,
+        thinkingLevel: ctx.thinkingLevel ?? null,
+        model: ctx.model ? ctx.model.provider + "/" + ctx.model.id : null,
+        systemPrompt: ctx.getSystemPrompt(),
+      };
       appendFileSync(statePath(), JSON.stringify(state) + "\\n");
+    },
+  });
+  // Select the local model. Pi resolves --provider and --model before
+  // extensions load, so a provider an extension registers cannot be named on
+  // the command line. Registering it here rather than at load also matters: a
+  // registration made during load is queued until the runner binds, and a
+  // second extension loading afterwards can leave that registration unapplied.
+  // A failed turn reports a message but no stack. Capturing one here is the
+  // only way a check can tell a manager bug from a Pi defect.
+  pi.on("agent_end", (event) => {
+    if (!event?.error) return;
+    appendFileSync(
+      join(process.env.PI_CODING_AGENT_DIR, "fixture-error.txt"),
+      (event.error?.stack ?? String(event.error)) + "\\n",
+    );
+  });
+
+  pi.registerCommand("fixture-use-local", {
+    handler: async (_args, ctx) => {
+      pi.registerProvider(LOCAL_PROVIDER, {
+        api: "anthropic-messages",
+        baseUrl: LOCAL_PLACEHOLDER_URL,
+        apiKey: LOCAL_PLACEHOLDER_KEY,
+        models: [localModel],
+        streamSimple: localStream,
+      });
+      const chosen = await pi.setModel(localModel);
+      const registry = ctx.modelRegistry;
+      writeFileSync(
+        join(process.env.PI_CODING_AGENT_DIR, "fixture-model.txt"),
+        JSON.stringify({
+          chosen: chosen === true,
+          provider: Boolean(registry?.getProvider?.(LOCAL_PROVIDER)),
+          auth: registry?.getProviderAuthStatus?.(LOCAL_PROVIDER) ?? null,
+          hasAuth: registry?.hasConfiguredAuth?.(localModel) ?? null,
+          found: Boolean(registry?.find?.(LOCAL_PROVIDER, LOCAL_MODEL)),
+        }),
+      );
+    },
+  });
+  pi.registerCommand("fixture-prompt", {
+    handler: async (_args, ctx) => {
+      writeFileSync(
+        join(process.env.PI_CODING_AGENT_DIR, "fixture-prompt.txt"),
+        ctx.getSystemPrompt(),
+      );
     },
   });
   pi.registerCommand("fixture-entries", {

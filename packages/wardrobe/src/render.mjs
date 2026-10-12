@@ -22,7 +22,7 @@ export function renderResult(result) {
     case "doctor":
       return renderDoctor(result);
     case "use":
-      return renderUse(result);
+      return result.kind === "soft" ? renderSoftUse(result) : renderUse(result);
     default:
       return `${result.command}: done`;
   }
@@ -160,6 +160,7 @@ function renderPlan(result) {
  */
 function renderStatus(result) {
   const lines = [`Wardrobe revisions (state: ${result.state})`];
+  if (result.session) lines.push(...renderSessionState(result));
   if (result.selected) {
     lines.push(
       `  selected: ${result.selected.revision}  ${result.selected.state}` +
@@ -174,6 +175,59 @@ function renderStatus(result) {
     "  intended: the approved configuration;  observed: what is on disk now;  launchable: false (a launch is a separate, verified step)"
   );
   return lines.join("\n");
+}
+
+/**
+ * What this session is using, beside what it last recorded wanting.
+ *
+ * Printed whenever a session is there to ask, because the declared shape of a
+ * preset and the state of the process reading it are different facts.
+ */
+function renderSessionState(result) {
+  const state = result.session ?? {};
+  const effective = result.effective ?? {};
+  const lines = ["  this session:"];
+  lines.push(`    running revision: ${effective.runningRevision ?? "(none: a personal environment)"}`);
+  lines.push(`    preferences adopted from: ${effective.adoptedFrom ?? "(none)"}`);
+  if (state.appliedAt) lines.push(`    last preference change: ${state.appliedAt}`);
+  lines.push(`    tools in effect: ${describe(effective.tools)}`);
+  lines.push(`    model in effect: ${describe(effective.model)}`);
+  lines.push(`    thinking in effect: ${describe(effective.thinking)}`);
+  lines.push(`    instructions adopted: ${describe(effective.persona)}`);
+  return lines;
+}
+
+/**
+ * A preference change applied inside the running session.
+ *
+ * Intended and effective are printed together, per field, because the whole
+ * point of this command is that "asked for" and "in effect" are different
+ * facts — and a field that was asked for and did not take is named as such
+ * rather than folded into a tidy "applied".
+ */
+function renderSoftUse(result) {
+  const lines = [
+    `Applied in this session: revision ${result.revision}`,
+    `  state: ${result.state}  same process, same revision, same packages and resources`,
+  ];
+  for (const row of result.applied) {
+    lines.push(`  ${row.field}: ${row.status}`);
+    lines.push(`    intended: ${describe(row.intended)}`);
+    lines.push(`    effective: ${describe(row.effective)}`);
+    for (const entry of row.notApplied) {
+      lines.push(`    not applied: ${describe(entry)}`);
+    }
+  }
+  for (const diagnostic of result.diagnostics ?? []) {
+    lines.push(`  diagnostic: ${diagnostic.path}: ${diagnostic.reason}`);
+  }
+  return lines.join("\n");
+}
+
+function describe(value) {
+  if (value === null || value === undefined) return "(none)";
+  if (Array.isArray(value)) return value.length === 0 ? "(none)" : value.join(", ");
+  return String(value);
 }
 
 /**

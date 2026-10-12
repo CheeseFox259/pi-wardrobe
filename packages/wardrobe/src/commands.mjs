@@ -12,12 +12,27 @@ import { PlanStore } from "./approval.mjs";
 import { join } from "node:path";
 import { WardrobeDiagnostic, describeFailure, WardrobeError } from "./diagnostics.mjs";
 import { oneLine } from "./doctor.mjs";
-import { resolveSelector } from "./identity.mjs";
+import {
+  executableDifference,
+  idleRefusal,
+  planModel,
+  planPersona,
+  planThinking,
+  planTools,
+} from "./apply.mjs";
+import {
+  appliedAgainst,
+  effectiveStateOf,
+  executableShapeOf,
+  runningRevisionOf,
+  sessionStateOf,
+} from "./session.mjs";
+import { identityKey, resolveSelector } from "./identity.mjs";
 import { readOverlay, readUserOverlay } from "./overlay.mjs";
 import { renderResult } from "./render.mjs";
 import { captureSource } from "./discover.mjs";
 import { installApprovedPlan } from "./install.mjs";
-import { diagnoseAll, diagnosePreset, selectRevision } from "./revisions.mjs";
+import { diagnoseAll, selectRevision } from "./revisions.mjs";
 import { launchPlanOf, preflightLaunch } from "./launch.mjs";
 import { isStale, leaseReason, LeaseStore } from "./lease.mjs";
 import { stagingViewOf } from "./staging.mjs";
@@ -44,9 +59,16 @@ const FIELD_KINDS = {
 /** Metadata a declaration describes about itself. */
 const DECLARED_FIELDS = ["schemaVersion", "id", "name", "version", "description", "author", "compatibility"];
 
-/** Resolve the agent directory Pi gave this process. */
+/**
+ * The agent directory holding this manager's revisions.
+ *
+ * `WARDROBE_AGENT_DIR` wins when it is set, because a session running inside an
+ * installed revision has a `PI_CODING_AGENT_DIR` that belongs to that revision,
+ * not to the manager that owns it. Without the explicit pointer, `/wardrobe`
+ * inside a launched revision would look for revisions inside the revision.
+ */
 function agentDir(env) {
-  const dir = env.PI_CODING_AGENT_DIR;
+  const dir = env.WARDROBE_AGENT_DIR || env.PI_CODING_AGENT_DIR;
   if (!dir) {
     throw WardrobeError.from(
       "Wardrobe cannot locate its agent directory",
@@ -83,7 +105,7 @@ function parseArgs(tokens) {
  *
  * @returns {Promise<{ok: boolean, command: string, result: object}>}
  */
-export async function runCommand(input, { env = process.env } = {}) {
+export async function runCommand(input, { env = process.env, session = null } = {}) {
   const args = String(input ?? "").trim();
   const [name = "", ...tokens] = args.split(/\s+/).filter(Boolean);
   const command = name || "list";
@@ -124,7 +146,7 @@ export async function runCommand(input, { env = process.env } = {}) {
     // revision, and its state must be reportable either way. Awaited inside
     // the try, so a refused selector is reported rather than thrown.
     if (command === "status") {
-      return await status(command, positional.join(" "), { dir, env });
+      return await status(command, positional.join(" "), { dir, env, session });
     }
     if (command === "doctor") {
       return await doctor(command, positional.join(" "), { dir, env });
@@ -132,7 +154,7 @@ export async function runCommand(input, { env = process.env } = {}) {
     if (command === "use") {
       // Awaited inside the try, so a refused revision is reported rather than
       // thrown at the session.
-      return await use(command, positional.join(" "), flags, { dir, env });
+      return await use(command, positional.join(" "), flags, { dir, env, session });
     }
 
     const store = new PresetStore(dir);
@@ -159,19 +181,20 @@ export async function runCommand(input, { env = process.env } = {}) {
     // Inspecting a preset is what captures it.
     const snapshotDir = store.write(resolved.preset, resolved.preset.definition);
     const composed = await composition(resolved.preset, flags, { dir, env });
-    // A preset's declared shape and the state of any revision built from it
-    // are different facts; both are reported, neither is inferred from the
-    // other.
-    const { reports } = await diagnosePreset(
-      dir,
-      `${resolved.preset.source}#${resolved.preset.id}`,
-      { env }
-    );
+    // One measurement pass serves both halves of the answer: this preset's own
+    // revisions, and the revision this process is running if it is one.
+    const { reports } = await diagnoseAll(dir, { env });
+    const presetKey = `${resolved.preset.source}#${resolved.preset.id}`;
     return success(command, {
       preset: { ...resolved.preset, state: "discovered", snapshotDir },
       definition: resolved.preset.definition,
       ...view(composed),
-      revisions: reports.map(oneLine),
+      revisions: reports
+        .filter((report) => identityKey(report.preset) === presetKey)
+        .map(oneLine),
+      // The session this is being read inside, where there is one.
+      session: session ? sessionStateOf(session.branch()) : null,
+      effective: session ? effectiveStateOf(sessionNow(session, { reports })) : null,
     });
   } catch (error) {
     return failure(command, error);
@@ -388,15 +411,41 @@ async function install(command, source, flags, { dir, env }) {
  * never merged: a record that says `available` while the measurement says
  * `drifted` is reported as exactly that.
  */
-async function status(command, selector, { dir, env }) {
+async function status(command, selector, { dir, env, session }) {
   const { reports, unreadable } = await diagnoseAll(dir, { env });
   const selected = selector ? selectRevision(reports, selector, { unreadable }) : null;
   return success(command, {
     state: selected?.state ?? reportsSummary(reports),
     selected: selected ? oneLine(selected) : null,
     revisions: reports.map(oneLine),
+    // What this session is actually using, where there is a session to ask.
+    // Reported beside what it last recorded wanting, because those are
+    // different facts.
+    session: session ? sessionStateOf(session.branch()) : null,
+    effective: session ? effectiveStateOf(sessionNow(session, { reports })) : null,
     unreadable,
   });
+}
+
+/**
+ * Everything `status` and `explain` want to know about the live session.
+ *
+ * Two revisions are named, because they are different facts: the revision whose
+ * code is running, and the revision whose preferences this session adopted.
+ * After a soft change they differ, and collapsing them into one would report an
+ * environment that never existed.
+ */
+function sessionNow(session, { reports = [] } = {}) {
+  const model = session.model();
+  const running = runningRevisionOf({ agentDir: session.agentDir, reports });
+  return {
+    runningRevision: running?.revision ?? null,
+    adoptedFrom: sessionStateOf(session.branch()).revision ?? null,
+    tools: session.activeTools(),
+    model,
+    thinking: session.thinkingLevel(),
+    persona: session.personaAppended(),
+  };
 }
 
 /** The full diagnosis for one revision, or for every revision. */
@@ -418,7 +467,7 @@ async function doctor(command, selector, { dir, env }) {
  * TUI, and it says what a launch would add rather than claiming to remove
  * anything an older session left behind.
  */
-async function use(command, selector, flags, { dir, env }) {
+async function use(command, selector, flags, { dir, env, session = null }) {
   if (!selector) {
     return failure(
       command,
@@ -459,6 +508,12 @@ async function use(command, selector, flags, { dir, env }) {
       )
     );
   }
+
+  // A difference this process cannot adopt is a new-process launch, not a
+  // preference change, and it is offered as a plan rather than performed.
+  const sameRuntime = await softUse({ agentDir: dir, env, session, target: prepared });
+  if (sameRuntime) return sameRuntime;
+
   const plan = launchPlanOf({
     report: prepared.report,
     plan: prepared.plan,
@@ -467,11 +522,166 @@ async function use(command, selector, flags, { dir, env }) {
   });
   return success(command, {
     state: prepared.report.state,
+    kind: "full-switch",
     launchPlan: plan,
     diagnostics: prepared.diagnostics.map((entry) => entry.toJSON()),
     installed: false,
     active: false,
   });
+}
+
+/**
+ * Apply a `use` inside this process when it is only preferences that differ.
+ *
+ * Returns null when the request is a full switch, so the caller offers the
+ * launch plan instead. The refusal reasons are returned rather than thrown so
+ * that a busy session produces a report the user can read, not an error.
+ */
+async function softUse({ agentDir, env, session, target }) {
+  if (!session) return null;
+  const { reports, plans } = await diagnoseAll(agentDir, { env });
+  const current = runningRevisionOf({ agentDir: session.agentDir, reports });
+  const currentPlan = current ? plans.get(current.revision) ?? null : null;
+  const executable = executableDifference({
+    current: current ? executableShapeOf({ report: current, plan: currentPlan }) : null,
+    target: executableShapeOf({ report: target.report, plan: target.plan }),
+  });
+  if (executable.length > 0) return null;
+
+  const refusal = idleRefusal({ idle: session.isIdle(), compacting: session.isCompacting() });
+  const tools = planTools({
+    wanted: target.plan.runtime?.tools ?? {},
+    current: session.activeTools(),
+    available: session.availableTools(),
+  });
+  const currentModel = session.model();
+  const model = planModel({
+    preference: target.plan.runtime?.model ?? null,
+    effective: currentModel ? `${currentModel.provider}/${currentModel.id}` : null,
+    // A model this session carries that the revision it runs does not declare
+    // is the user's own choice, made in this process.
+    chosenHere:
+      currentModel && declaredModelOf(currentPlan) !== `${currentModel.provider}/${currentModel.id}`
+        ? `${currentModel.provider}/${currentModel.id}`
+        : null,
+  });
+  const thinking = planThinking({
+    preference: target.plan.runtime?.thinking ?? null,
+    effective: session.thinkingLevel(),
+  });
+  const state = session.personaAppended();
+  const persona = planPersona({ wanted: target.plan.persona?.append ?? [], active: state });
+
+  const intended = {
+    // The declared selection, not the one that took: a name this runtime could
+    // not provide has to appear as not applied rather than disappear.
+    tools: tools.intended,
+    model: model.applies ? model.requested : model.effective,
+    thinking: thinking.applies ? thinking.requested : thinking.effective,
+    persona: persona.resulting,
+  };
+  const diagnostics = preparedToDiagnostics({ tools, model, thinking });
+
+  if (refusal) {
+    return failure(
+      "use",
+      WardrobeError.from("this session is not idle", [
+        new WardrobeDiagnostic({ path: "/use", reason: refusal }),
+        ...diagnostics.map((entry) => new WardrobeDiagnostic(entry)),
+      ], "nothing was changed; re-run when the session is idle")
+    );
+  }
+
+  if (tools.changed) session.setActiveTools(tools.resulting);
+  if (model.applies) {
+    const at = model.requested.indexOf("/");
+    const provider = model.requested.slice(0, at);
+    const id = model.requested.slice(at + 1);
+    const resolved = session.resolveModel(provider, id);
+    if (!resolved.summary) {
+      diagnostics.push({
+        path: "/runtime/model",
+        reason: `no model named ${model.requested} exists here`,
+        hint: "a preference cannot introduce a model that is not available; your model is unchanged",
+      });
+    } else if (resolved.hasAuth === false) {
+      diagnostics.push({
+        path: "/runtime/model",
+        reason: `${model.requested} is available but has no credentials here`,
+        hint: "your model is unchanged; this manager never introduces authentication",
+      });
+    } else if (!(await session.setModel(resolved.model))) {
+      diagnostics.push({
+        path: "/runtime/model",
+        reason: `Pi refused ${model.requested}`,
+        hint: "your model is unchanged",
+      });
+    }
+  }
+  if (thinking.applies) session.setThinkingLevel(thinking.requested);
+
+  const personaState = [...persona.resulting];
+  if (persona.changed) session.adopt(personaState);
+
+  // Record what this session now prefers, then read the effective state back.
+  // The order matters: the instructions a session carries are the ones on its
+  // branch, so reading before recording would report the previous revision's.
+  session.remember({
+    revision: target.report.revision,
+    appliedAt: new Date().toISOString(),
+    tools: session.activeTools(),
+    model: session.model(),
+    thinking: session.thinkingLevel(),
+    persona: personaState,
+  });
+
+  // What is in effect now, read from the runtime and from the session's own
+  // record — never what was asked for.
+  const effective = effectiveStateOf({
+    tools: session.activeTools(),
+    model: session.model(),
+    thinking: session.thinkingLevel(),
+    persona: session.personaAppended(),
+  });
+  const rows = appliedAgainst({ intended, effective });
+
+  return success("use", {
+    state: rows.every((row) => row.applied) ? "applied" : "partly-applied",
+    kind: "soft",
+    // The process is untouched: same revision, same code, same PID.
+    revision: target.report.revision,
+    applied: rows,
+    effective,
+    intended,
+    diagnostics: diagnostics.map((entry) => new WardrobeDiagnostic(entry).toJSON()),
+    installed: false,
+    active: false,
+  });
+}
+
+/** The model the revision this session is running declares, if any. */
+function declaredModelOf(plan) {
+  const declared = plan?.runtime?.model?.value;
+  return typeof declared === "string" ? declared : null;
+}
+
+/** Turn a plan's refusals into reportable diagnostics. */
+function preparedToDiagnostics({ tools, model, thinking }) {
+  const out = [];
+  for (const entry of tools.unmet) {
+    out.push({
+      path: "/runtime/tools",
+      reason: `tool ${entry.tool} is wanted but ${entry.reason}`,
+      hint: "the rest of the selection is applied; this name is not a problem anything here can fix",
+    });
+  }
+  if (model.requested && !model.applies) {
+    out.push({ path: "/runtime/model", reason: model.reason, hint: null });
+  }
+  if (thinking.reason) {
+    out.push({ path: "/runtime/thinking", reason: thinking.reason, hint: null });
+  }
+  return out;
 }
 
 /** The most serious state present, named plainly. */

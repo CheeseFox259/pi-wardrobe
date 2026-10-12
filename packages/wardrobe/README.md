@@ -19,7 +19,7 @@ which starts a verified revision in a new process and nothing in this one.
 | `/wardrobe install <source> --confirm <digest>` | Approves the plan by quoting the digest it printed, then installs it into owned staging with every resource filtered inactive, and measures its lock. A different digest is refused and installs nothing |
 | `/wardrobe status [revision]` | Every installed revision, one line each: the state the install recorded beside the state measured now. No selector means the whole store |
 | `/wardrobe doctor [revision]` | The full diagnosis per revision: configuration, selected-resource content, installed code, baseline and declared runtime data, with every difference named |
-| `/wardrobe use <revision>` | The launch plan for using a revision in a **new** process: what would load, what would install and run, and the exact command. Starts nothing, and is refused while the revision is busy |
+| `/wardrobe use <revision>` | Changes the running session when only preferences differ — tools, model preference, thinking level, appended instructions — and reports what is in effect beside what was intended. When packages, resources or code differ it returns the **new-process launch plan** instead, starts nothing, and is refused while the revision is busy |
 
 `list`, `show`, `explain` and `status` also report installed revisions, so the
 declared shape of a preset and the state of any revision built from it are
@@ -97,6 +97,42 @@ package roots.
   ships the declaration. A local snapshot with no pinned native source is
   refused, because Pi does not install a local package's dependencies and the
   approved artifacts would otherwise not be what is installed.
+
+## Changing a running session
+
+`/wardrobe use` has two jobs and never blurs them. A difference in tools, model
+preference, thinking level or appended instructions is a preference the running
+process can adopt. A difference in packages, resources or code is not: those were
+reviewed and installed as a revision, and changing them is a new process.
+
+- **The decision is made from the installed tree, not from the declarations.**
+  Installed code is compared per package, because a tree digest covers the
+  installer metadata beside the packages and npm's lockfile records the directory
+  it was installed into — two installations of identical content carry
+  different digests. The question a running process asks is whether this is the
+  same code, not whether these are the same bytes.
+- **Nothing is applied mid-turn.** A session that is streaming or compacting is
+  refused, with the reason, and nothing changes. Refusing beats half-applying a
+  preference while a run is in flight.
+- **What is intended and what is in effect are reported separately**, per field,
+  with a status of `in-effect`, `different` or `partly-applied`. A value the
+  runtime clamped, a tool nothing provides, and a model preference with no
+  credentials here are all reported as what they are — never as applied.
+- **The revision is not touched.** Applying a preference writes nothing: the
+  process, the PID, the revision directory, its settings and its lock are
+  unchanged, and a change this session cannot adopt returns a launch plan rather
+  than a partial edit.
+- **What a session has adopted lives in the session's own entries**, so it
+  follows the active branch: a fork inherits it and an abandoned branch does not
+  contribute to the branch the user is on. Instructions are contributed as prompt
+  guidelines rather than as a replaced prompt.
+
+The launcher points the started process at both directories it needs:
+`PI_CODING_AGENT_DIR` is the revision's own, and `WARDROBE_AGENT_DIR` is the
+manager's, so `/wardrobe` inside a launched revision finds the revisions rather
+than looking inside itself. The launcher also loads its own extension into the
+process it starts, because a revision with no `/wardrobe` could be neither
+inspected nor reconfigured.
 
 ## Launching a revision
 
@@ -323,6 +359,9 @@ npm test
 - `test/isolated-pi-launch.test.mjs` — starting a revision through the
   standalone launcher: what loaded, what was isolated, who held the lease, and
   what the child process did
+- `test/idle-session-overrides.test.mjs` — applying preferences inside a running
+  session and reading back what it is actually using, including what a local
+  model provider was asked
 
 Tracked by
 [issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).

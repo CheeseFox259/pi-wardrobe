@@ -12,7 +12,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
-import { externalResourceRoots } from "../packages/wardrobe/src/launch.mjs";
+import { externalResourceRoots, managerExtensionPath } from "../packages/wardrobe/src/launch.mjs";
 import { useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("isolated-pi-launch");
@@ -601,14 +601,23 @@ test("the child is told which session directory to use", async () => {
   // explicit directory is what decides, and the record says what Pi was actually
   // started with rather than what the caller asked for.
   assert.deepEqual(record.argv.slice(1), ["--mode", "rpc", "--no-session"]);
-  assert.deepEqual(record.spawnedArgv.slice(1), [
+  assert.deepEqual(record.spawnedArgv.slice(1, 6), [
     "--mode",
     "rpc",
     "--no-session",
     "--session-dir",
     record.sessionDir,
   ]);
-  assert.deepEqual(record.env, { PI_CODING_AGENT_DIR: revisionDir });
+  // The launcher also loads its own command into the process it starts: a
+  // revision with no /wardrobe could be neither inspected nor reconfigured.
+  assert.deepEqual(record.spawnedArgv.slice(6), ["--extension", managerExtensionPath()]);
+  // Two directories, deliberately: Pi runs in the revision's own, and the
+  // manager is pointed at the directory that holds its revisions so that
+  // /wardrobe inside a launched revision is not looking inside itself.
+  assert.deepEqual(record.env, {
+    PI_CODING_AGENT_DIR: revisionDir,
+    WARDROBE_AGENT_DIR: h.agentPath("primary"),
+  });
   assert.deepEqual(readdirSync(sharedSessions).sort(), sharedBefore, "the shared session store was touched");
 
   // A caller who names their own session directory keeps it: the launcher does
@@ -624,7 +633,12 @@ test("the child is told which session directory to use", async () => {
   assert.equal(ownRecord.sessionExplicit, true);
   // The launcher's `--session` names a directory, which Pi takes as
   // `--session-dir`; the caller's choice is what Pi is given.
-  assert.deepEqual(ownRecord.spawnedArgv.slice(-2), ["--session-dir", mine]);
+  assert.deepEqual(ownRecord.spawnedArgv.slice(-4), [
+    "--session-dir",
+    mine,
+    "--extension",
+    managerExtensionPath(),
+  ]);
   h.record("explicit-session-directory", {
     revisionSessionDir: record.sessionDir,
     argv: record.argv.slice(1),
