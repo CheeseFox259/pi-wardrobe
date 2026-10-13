@@ -434,5 +434,56 @@ export default function (pi) {
       writeFileSync(entriesPath(), JSON.stringify(custom));
     },
   });
+  pi.registerCommand("fixture-navigate-tree", {
+    handler: async (args, ctx) => {
+      const targetId = args.trim();
+      const result = await ctx.navigateTree(targetId);
+      writeFileSync(
+        join(process.env.PI_CODING_AGENT_DIR, "fixture-tree-result.json"),
+        JSON.stringify(result ?? null)
+      );
+    },
+  });
+  pi.registerCommand("fixture-fork", {
+    handler: async (args, ctx) => {
+      try {
+        const parts = args.trim().split(/\s+/).filter(Boolean);
+        const entryId = parts[0];
+        const position = parts[1] || "at";
+        const result = await ctx.fork(entryId, { position });
+        writeFileSync(
+          join(process.env.PI_CODING_AGENT_DIR, "fixture-fork-result.json"),
+          JSON.stringify(result ?? null)
+        );
+      } catch (err) {
+        writeFileSync(
+          join(process.env.PI_CODING_AGENT_DIR, "fixture-fork-error.txt"),
+          err.stack || String(err)
+        );
+      }
+    },
+  });
+  pi.registerCommand("fixture-leaf-id", {
+    handler: async (_args, ctx) => {
+      writeFileSync(
+        join(process.env.PI_CODING_AGENT_DIR, "fixture-leaf-id.txt"),
+        ctx.sessionManager.getLeafId() ?? ""
+      );
+    },
+  });
+  pi.registerCommand("fixture-session-file", {
+    handler: async (_args, ctx) => {
+      writeFileSync(
+        join(process.env.PI_CODING_AGENT_DIR, "fixture-session-file.txt"),
+        ctx.sessionManager.getSessionFile() ?? ""
+      );
+    },
+  });
+  pi.registerCommand("fixture-append-wardrobe-session", {
+    handler: async (args, _ctx) => {
+      const data = JSON.parse(args);
+      pi.appendEntry("wardrobe.session", data);
+    },
+  });
 }
 `;

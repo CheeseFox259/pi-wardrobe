@@ -193,13 +193,28 @@ function renderSessionState(result) {
   const state = result.session ?? {};
   const effective = result.effective ?? {};
   const lines = ["  this session:"];
+  if (result.pid !== undefined && result.pid !== null) {
+    lines.push(`    pid: ${result.pid}`);
+  }
   lines.push(`    running revision: ${effective.runningRevision ?? "(none: a personal environment)"}`);
+  if (result.codeState?.preset) {
+    lines.push(`    running preset: ${result.codeState.preset}`);
+  }
+  if (result.restrictions && result.restrictions.length > 0) {
+    lines.push(`    user restrictions: ${result.restrictions.join(", ")}`);
+  }
   lines.push(`    preferences adopted from: ${effective.adoptedFrom ?? "(none)"}`);
   if (state.appliedAt) lines.push(`    last preference change: ${state.appliedAt}`);
   lines.push(`    tools in effect: ${describe(effective.tools)}`);
   lines.push(`    model in effect: ${describe(effective.model)}`);
   lines.push(`    thinking in effect: ${describe(effective.thinking)}`);
   lines.push(`    instructions adopted: ${describe(effective.persona)}`);
+  if (result.block) {
+    lines.push(`    turn blocked: ${result.block.reason}`);
+    if (result.block.relaunchPlan?.command) {
+      lines.push(`      relaunch plan: ${result.block.relaunchPlan.command}`);
+    }
+  }
   return lines;
 }
 

@@ -257,8 +257,8 @@ export function resolveBinding({ binding, reports, plans }) {
 }
 
 /** Requirements the chosen revision declares that cannot be met. */
-function unmetRequirementsOf(report, plans) {
-  const plan = plans.get(report.revision);
+export function unmetRequirementsOf(report, plans) {
+  const plan = plans?.get(report?.revision);
   return (plan?.runtime?.tools?.unmet ?? []).map(
     (entry) => `tool ${entry.tool}: ${entry.reason}`
   );
@@ -293,8 +293,9 @@ export function recordMigration(binding, migration) {
 }
 
 /** When a revision's plan was approved, which is the order follow follows. */
-function approvedAtOf(report, plans) {
-  return plans.get(report.revision)?.approved?.at ?? report.recordedAt ?? "";
+export function approvedAtOf(report, plans) {
+  if (!report) return "";
+  return plans?.get(report.revision)?.approved?.at ?? report.recordedAt ?? "";
 }
 
 /** A filename-safe form of a preset key. */

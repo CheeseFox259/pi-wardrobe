@@ -25,6 +25,7 @@ import { leaseViewOf, LeaseStore } from "./lease.mjs";
 import { probeLoadedState, reconcileSelection, selectedResourcesOf } from "./probe.mjs";
 import { diagnoseAll, resolvePresetKey, selectRevision } from "./revisions.mjs";
 import { BindingStore, LaunchRecords, recordMigration, resolveBinding } from "./binding.mjs";
+import { repositoryKeyOf } from "./identity.mjs";
 
 /** The built-in tools Pi itself provides, which need no package to register. */
 const BUILTIN_TOOLS = new Set([
@@ -436,7 +437,13 @@ export async function runRevision({
     // file is not the place for them: a prompt guideline is contributed by the
     // session, and the session has to be told what this revision asked for
     // before it can contribute anything.
-    writeLaunchSession({ revisionDir, report: prepared.report, plan: prepared.plan });
+    writeLaunchSession({
+      revisionDir,
+      report: prepared.report,
+      plan: prepared.plan,
+      preset: prepared.binding?.preset ?? repositoryKeyOf(prepared.report.preset),
+      mode: prepared.binding?.mode ?? "follow",
+    });
 
     // Observe the activated revision in a real process before handing the
     // user's terminal to it. A revision that will not start here is not started
@@ -633,7 +640,7 @@ function withSessionDir(args, sessionDir) {
  * asked for, so a session can contribute it without re-deriving the plan, and a
  * later preference change is recorded on the session's own branch instead.
  */
-function writeLaunchSession({ revisionDir, report, plan }) {
+function writeLaunchSession({ revisionDir, report, plan, preset, mode }) {
   const dir = join(revisionDir, "wardrobe");
   mkdirSync(dir, { recursive: true });
   const persona = (plan.persona?.append ?? []).map((entry) =>
@@ -643,11 +650,14 @@ function writeLaunchSession({ revisionDir, report, plan }) {
     join(dir, "session.json"),
     `${JSON.stringify(
       {
+        preset: preset ?? repositoryKeyOf(report.preset),
+        mode: mode ?? "follow",
         revision: report.revision,
         // A declaration's persona arrives folded with its provenance; a prompt
         // takes the text.
         persona,
         tools: toolSelectionFor(plan),
+        model: plan.runtime?.model?.value ?? null,
         thinking: plan.runtime?.thinking?.value ?? null,
       },
       null,

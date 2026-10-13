@@ -425,6 +425,19 @@ async function install(command, source, flags, { dir, env }) {
 async function status(command, selector, { dir, env, session }) {
   const { reports, unreadable, plans } = await diagnoseAll(dir, { env });
   const selected = selector ? selectRevision(reports, selector, { unreadable }) : null;
+  const running = session ? runningRevisionOf({ agentDir: session.agentDir, reports }) : null;
+  const runningRevision = running?.revision ?? (session?.baseline?.()?.revision ?? null);
+  const runningPreset = running
+    ? repositoryKeyOf(running.preset)
+    : (session?.baseline?.()?.preset ?? null);
+  const runningBinding = runningPreset ? new BindingStore(dir).read(runningPreset) : null;
+  const restrictions = [
+    ...new Set([
+      ...(runningBinding?.restrictions ?? []),
+      ...(session?.restrictions?.() ?? []),
+    ]),
+  ];
+
   return success(command, {
     // A binding that cannot be satisfied counts against how healthy this is:
     // reporting the revisions that happen to be installed while a binding is
@@ -447,6 +460,13 @@ async function status(command, selector, { dir, env, session }) {
     // different facts.
     session: session ? sessionStateOf(session.branch()) : null,
     effective: session ? effectiveStateOf(sessionNow(session, { reports })) : null,
+    pid: session ? (session.pid ?? process.pid) : null,
+    codeState: session ? {
+      revision: runningRevision,
+      preset: runningPreset,
+    } : null,
+    restrictions,
+    block: session?.block?.() ?? null,
     unreadable,
   });
 }
@@ -462,8 +482,9 @@ async function status(command, selector, { dir, env, session }) {
 function sessionNow(session, { reports = [] } = {}) {
   const model = session.model();
   const running = runningRevisionOf({ agentDir: session.agentDir, reports });
+  const runningRevision = running?.revision ?? (session.baseline?.()?.revision ?? null);
   return {
-    runningRevision: running?.revision ?? null,
+    runningRevision,
     adoptedFrom: sessionStateOf(session.branch()).revision ?? null,
     tools: session.activeTools(),
     model,
@@ -686,7 +707,8 @@ async function use(command, selector, flags, { dir, env, session = null }) {
   // A lease that cannot be read is held, not absent: ownership that cannot be
   // established is not ownership that has been released.
   const held = new LeaseStore(dir).read(prepared.report.revision);
-  if (held && !isStale(held)) {
+  const ownLease = Boolean(held && session && held.childPid === session.pid);
+  if (held && !isStale(held) && !ownLease) {
     return failure(
       command,
       WardrobeError.from(
@@ -823,7 +845,10 @@ async function softUse({ agentDir, env, session, target }) {
   // Record what this session now prefers, then read the effective state back.
   // The order matters: the instructions a session carries are the ones on its
   // branch, so reading before recording would report the previous revision's.
+  const baseline = session.baseline?.() ?? null;
   session.remember({
+    preset: baseline?.preset ?? repositoryKeyOf(target.report.preset),
+    mode: baseline?.mode ?? "follow",
     revision: target.report.revision,
     appliedAt: new Date().toISOString(),
     tools: session.activeTools(),

@@ -44,7 +44,7 @@ export function revisionStore(agentDir) {
  * that goes on to launch a revision needs the plan it was measured against, and
  * re-reading the store for it would be a second, racy read.
  */
-export async function diagnoseAll(agentDir, { env }) {
+export async function diagnoseAll(agentDir, { env = process.env } = {}) {
   const { records, unreadable, plans } = revisionStore(agentDir);
   const reports = [];
   for (const record of records) {

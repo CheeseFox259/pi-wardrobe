@@ -1,0 +1,385 @@
+// Reconciling branch desired state with the running process runtime.
+//
+// In Pi, navigating between branches moves the active conversation to a
+// different point in the session tree. A branch may carry soft overrides
+// (tools, model, thinking, persona), or it may have been recorded under a
+// different revision or an entirely different preset.
+//
+// Wardrobe guarantees safe branch-state navigation:
+// 1. Soft overrides compatible with the active runtime are restored in place.
+// 2. Follow branches stay on the currently running newer approved revision,
+//    recording migration evidence rather than chasing installed revisions
+//    in-process.
+// 3. Incompatible states (different preset, strict revision mismatch, newer
+//    revision required, missing resource) block the next model turn and supply
+//    a relaunch plan (wardrobe run <preset> --resume <session-file>).
+// 4. Executable resources are NEVER loaded or swapped in-process; history is
+//    never rewritten or deleted.
+
+import { planTools, planModel, planThinking, planPersona } from "./apply.mjs";
+import { appliedAgainst } from "./session.mjs";
+import { approvedAtOf, unmetRequirementsOf } from "./binding.mjs";
+
+/**
+ * Normalize model identifier to "provider/id" string if possible.
+ */
+export function normalizeModelString(model) {
+  if (!model) return null;
+  if (typeof model === "string") return model;
+  if (typeof model === "object" && model.provider && model.id) {
+    return `${model.provider}/${model.id}`;
+  }
+  return null;
+}
+
+/**
+ * Build a relaunch plan object for a blocked reconciliation.
+ */
+export function relaunchPlanFor({ preset, revision, sessionFile, reason }) {
+  const target = preset ?? revision ?? "unknown";
+  const fileArg = sessionFile ? ` --resume ${sessionFile}` : " --resume <session-file>";
+  return {
+    command: `wardrobe run ${target}${fileArg}`,
+    reason,
+    preset,
+    revision,
+    sessionFile: sessionFile ?? null,
+  };
+}
+
+/**
+ * Compute the soft-field restore plan and detect if changes exist.
+ */
+export function computeSoftRestorePlan({ desired, runtime, restrictions = [] }) {
+  const currentTools = runtime?.tools ?? [];
+  const availableTools = runtime?.availableTools ?? currentTools;
+  const currentModel = normalizeModelString(runtime?.model);
+  const currentThinking = runtime?.thinking ?? null;
+  const currentPersona = runtime?.persona ?? [];
+
+  const desiredTools = desired?.tools ?? [];
+  const tools = planTools({
+    wanted: {
+      enabled: desiredTools.map((tool) => ({ tool })),
+      disabled: availableTools.filter((tool) => !desiredTools.includes(tool)).map((tool) => ({ tool })),
+      restricted: restrictions,
+    },
+    current: currentTools,
+    available: availableTools,
+  });
+
+  const desiredModel = normalizeModelString(desired?.model);
+  const model = planModel({
+    preference: desiredModel ? { value: desiredModel } : null,
+    effective: currentModel,
+    chosenHere: null,
+  });
+
+  const thinking = planThinking({
+    preference: desired?.thinking ? { value: desired.thinking } : null,
+    effective: currentThinking,
+  });
+
+  const persona = planPersona({
+    wanted: desired?.persona ?? [],
+    active: currentPersona,
+  });
+
+  const modelChanged = Boolean(model.applies && model.requested !== model.effective);
+  const personaChanged = JSON.stringify(persona.resulting) !== JSON.stringify(currentPersona);
+  const hasChanges = tools.changed || modelChanged || thinking.changed || personaChanged;
+
+  return {
+    tools,
+    model,
+    modelChanged,
+    thinking,
+    persona,
+    personaChanged,
+    hasChanges,
+  };
+}
+
+/**
+ * Pure reconciliation logic.
+ *
+ * Evaluates branch desired state against process state and manager store:
+ * - "in-effect": compatible; returns soft-field restore plan.
+ * - "follow-kept": stayed on running newer approved revision; returns migration evidence.
+ * - "blocked": preset mismatch, strict mismatch, newer follow revision, or unmet resource;
+ *              returns relaunch plan.
+ */
+export function reconcileState({
+  desired: rawDesired,
+  baseline = null,
+  processState = {},
+  reports = [],
+  plans = new Map(),
+  binding = null,
+  sessionFile = null,
+  runtime = null,
+}) {
+  const currentEffective = {
+    tools: runtime?.tools ?? [],
+    model: normalizeModelString(runtime?.model),
+    thinking: runtime?.thinking ?? null,
+    persona: runtime?.persona ?? [],
+  };
+
+  const hasSessionEntry = Boolean(rawDesired && (rawDesired.appliedAt || rawDesired.revision));
+  const desired = hasSessionEntry
+    ? {
+        preset: rawDesired?.preset ?? baseline?.preset ?? processState?.preset ?? null,
+        mode: rawDesired?.mode ?? baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
+        revision: rawDesired?.revision ?? baseline?.revision ?? processState?.revision ?? null,
+        tools: rawDesired?.tools ?? baseline?.tools ?? processState?.tools ?? [],
+        model: normalizeModelString(rawDesired?.model ?? baseline?.model ?? processState?.model),
+        thinking: rawDesired?.thinking ?? baseline?.thinking ?? processState?.thinking ?? null,
+        persona: rawDesired?.persona ?? baseline?.persona ?? processState?.persona ?? [],
+      }
+    : {
+        preset: baseline?.preset ?? processState?.preset ?? null,
+        mode: baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
+        revision: baseline?.revision ?? processState?.revision ?? null,
+        tools: baseline?.tools ?? processState?.tools ?? [],
+        model: normalizeModelString(baseline?.model ?? processState?.model),
+        thinking: baseline?.thinking ?? processState?.thinking ?? null,
+        persona: baseline?.persona ?? processState?.persona ?? [],
+      };
+
+  const currentRestrictions = [
+    ...new Set([
+      ...(processState.restrictions ?? []),
+      ...(binding?.restrictions ?? []),
+    ]),
+  ];
+
+  const intended = {
+    tools: desired.tools,
+    model: desired.model,
+    thinking: desired.thinking,
+    persona: desired.persona,
+  };
+  const softReporting = appliedAgainst({ intended, effective: currentEffective });
+
+  // 1. Preset mismatch check
+  if (desired.preset && processState.preset && desired.preset !== processState.preset) {
+    const reason = "preset mismatch";
+    return {
+      status: "blocked",
+      reason,
+      detail: `branch is bound to preset ${desired.preset}, but process is running ${processState.preset}`,
+      relaunchPlan: relaunchPlanFor({ preset: desired.preset, revision: desired.revision, sessionFile, reason }),
+      softFields: softReporting,
+      desired,
+    };
+  }
+
+  // 2. Unmet requirements / missing resource check on desired revision
+  const desiredReport = reports.find((r) => r.revision === desired.revision);
+  if (desiredReport) {
+    const unmet = unmetRequirementsOf(desiredReport, plans);
+    if (unmet.length > 0) {
+      const reason = "missing resource";
+      return {
+        status: "blocked",
+        reason,
+        detail: `the revision cannot meet a requirement: ${unmet.join("; ")}`,
+        relaunchPlan: relaunchPlanFor({
+          preset: desired.preset || processState.preset,
+          revision: desired.revision,
+          sessionFile,
+          reason,
+        }),
+        softFields: softReporting,
+        desired,
+      };
+    }
+  }
+
+  // Check user restrictions: exact tool matching
+  if (currentRestrictions.length > 0 && desiredReport) {
+    const plan = plans.get(desiredReport.revision);
+    const planEnabledNames = (plan?.runtime?.tools?.enabled ?? []).map((e) => (typeof e === "string" ? e : e.tool));
+    const desiredToolNames = (desired.tools ?? []).map((t) => (typeof t === "string" ? t : t.tool));
+    const activeToolNames = new Set([...planEnabledNames, ...desiredToolNames]);
+    const restrictedSet = new Set(currentRestrictions);
+    const restrictedViolations = [...restrictedSet].filter((toolName) => activeToolNames.has(toolName));
+    if (restrictedViolations.length > 0) {
+      const reason = "missing resource";
+      return {
+        status: "blocked",
+        reason,
+        detail: `unmet restrictions: tool ${restrictedViolations.join(", ")} is excluded by user restriction`,
+        relaunchPlan: relaunchPlanFor({
+          preset: desired.preset || processState.preset,
+          revision: desired.revision,
+          sessionFile,
+          reason,
+        }),
+        softFields: softReporting,
+        desired,
+      };
+    }
+  }
+
+  // 3. Strict mode mismatch check
+  const mode = desired.mode || processState.mode || binding?.mode || "follow";
+  if (mode === "strict") {
+    if (desired.revision && processState.revision && desired.revision !== processState.revision) {
+      const reason = "strict mismatch";
+      return {
+        status: "blocked",
+        reason,
+        detail: `strict mode requires pinned revision ${desired.revision}, but process is running ${processState.revision}`,
+        relaunchPlan: relaunchPlanFor({
+          preset: desired.preset || processState.preset,
+          revision: desired.revision,
+          sessionFile,
+          reason,
+        }),
+        softFields: softReporting,
+        desired,
+      };
+    }
+    // Strict match: check if the pinned revision has drifted or gone missing
+    if (!desiredReport || desiredReport.state !== "available") {
+      const state = desiredReport ? desiredReport.state : "missing";
+      const reason = state === "drifted" ? "drift" : "missing resource";
+      return {
+        status: "blocked",
+        reason,
+        detail: `the pinned revision ${desired.revision} is ${state}`,
+        relaunchPlan: relaunchPlanFor({
+          preset: desired.preset || processState.preset,
+          revision: desired.revision,
+          sessionFile,
+          reason,
+        }),
+        softFields: softReporting,
+        desired,
+      };
+    }
+    return {
+      status: "in-effect",
+      reason: "strict match with active runtime",
+      restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions }),
+      softFields: softReporting,
+      desired,
+    };
+  }
+
+  // 4. Follow mode: compare revisions and approval order
+  if (desired.revision && processState.revision && desired.revision !== processState.revision) {
+    const processReport = reports.find((r) => r.revision === processState.revision);
+    const desiredAvailable = desiredReport && desiredReport.state === "available";
+    const processAvailable = processReport && processReport.state === "available";
+
+    if (!desiredAvailable && processAvailable) {
+      // Desired revision is no longer available, but process is available -> keep process revision
+      return followKeptResult({
+        desired,
+        processRevision: processState.revision,
+        runtime,
+        restrictions: currentRestrictions,
+        softReporting,
+      });
+    }
+
+    if (processReport && desiredReport) {
+      const processApproved = approvedAtOf(processReport, plans);
+      const desiredApproved = approvedAtOf(desiredReport, plans);
+      const cmp = processApproved.localeCompare(desiredApproved);
+
+      if (cmp >= 0) {
+        // Process is newer-or-equal in approval order -> keep process revision
+        return followKeptResult({
+          desired,
+          processRevision: processState.revision,
+          runtime,
+          restrictions: currentRestrictions,
+          softReporting,
+        });
+      } else {
+        // Desired revision is NEWER than process revision -> blocked!
+        const reason = "missing resource";
+        return {
+          status: "blocked",
+          reason,
+          detail: `branch desired revision ${desired.revision} is newer than running revision ${processState.revision}`,
+          relaunchPlan: relaunchPlanFor({
+            preset: desired.preset || processState.preset,
+            revision: desired.revision,
+            sessionFile,
+            reason,
+          }),
+          softFields: softReporting,
+          desired,
+        };
+      }
+    }
+
+    // Fail closed if approval order cannot be established or revisions cannot be resolved
+    const reason = "missing resource";
+    return {
+      status: "blocked",
+      reason,
+      detail: `cannot reconcile revision mismatch (${desired.revision} vs ${processState.revision}): approval order cannot be established`,
+      relaunchPlan: relaunchPlanFor({
+        preset: desired.preset || processState.preset,
+        revision: desired.revision,
+        sessionFile,
+        reason,
+      }),
+      softFields: softReporting,
+      desired,
+    };
+  }
+
+  // 5. In-effect (compatible): verify revision is available
+  if (desired.revision && (!desiredReport || desiredReport.state !== "available")) {
+    const state = desiredReport ? desiredReport.state : "missing";
+    const reason = state === "drifted" ? "drift" : "missing resource";
+    return {
+      status: "blocked",
+      reason,
+      detail: `the revision ${desired.revision} is ${state}`,
+      relaunchPlan: relaunchPlanFor({
+        preset: desired.preset || processState.preset,
+        revision: desired.revision,
+        sessionFile,
+        reason,
+      }),
+      softFields: softReporting,
+      desired,
+    };
+  }
+
+  return {
+    status: "in-effect",
+    reason: "compatible with active runtime",
+    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions }),
+    softFields: softReporting,
+    desired,
+  };
+}
+
+function followKeptResult({ desired, processRevision, runtime, restrictions, softReporting }) {
+  const reason = "follow kept the running newer approved revision during tree navigation";
+  return {
+    status: "follow-kept",
+    reason,
+    keptFrom: desired.revision,
+    keptTo: processRevision,
+    migration: {
+      at: new Date().toISOString(),
+      from: desired.revision,
+      to: processRevision,
+      mode: "follow",
+      reason,
+    },
+    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions }),
+    softFields: softReporting,
+    desired,
+  };
+}

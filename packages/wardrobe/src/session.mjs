@@ -10,6 +10,9 @@
 // installed, which is why a preference can be reapplied to a process and never
 // to a directory.
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 /** The custom-entry type a session's own state is stored under. */
 export const SESSION_TYPE = "wardrobe.session";
 
@@ -25,6 +28,8 @@ export function sessionStateOf(entries) {
   const last = mine.at(-1);
   const data = last.data ?? {};
   return {
+    preset: data.preset ?? null,
+    mode: data.mode ?? null,
     revision: data.revision ?? null,
     appliedAt: data.appliedAt ?? null,
     runId: data.runId ?? null,
@@ -38,6 +43,8 @@ export function sessionStateOf(entries) {
 
 function emptyState() {
   return {
+    preset: null,
+    mode: null,
     revision: null,
     appliedAt: null,
     runId: null,
@@ -46,6 +53,20 @@ function emptyState() {
     thinking: null,
     persona: [],
   };
+}
+
+/**
+ * What the process was started with, recorded in its revision directory.
+ */
+export function processBaselineOf(revisionDir) {
+  if (!revisionDir) return null;
+  const path = join(revisionDir, "wardrobe", "session.json");
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 /**

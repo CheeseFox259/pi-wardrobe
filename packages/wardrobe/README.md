@@ -176,6 +176,38 @@ one that was never written is refused rather than pointed at nothing.
 `status` and `doctor` report bindings, their migrations and the launch records
 beside the revisions they govern.
 
+## Branch navigation and reconciliation
+
+Navigating between branches in a running session (`/tree` or Pi's session tree
+navigation) moves the active conversation across branches that may carry
+different soft overrides or binding targets.
+
+Wardrobe reconciles the destination branch with the running process runtime:
+
+- **Soft overrides are restored in place.** If the target branch is on the same
+  revision, desired soft overrides (tools, model, thinking level, persona
+  instructions) are planned and applied in-place without restarting the process.
+- **Follow branches keep the running newer approved revision.** When navigating
+  to an older branch of the same preset under follow mode, the process remains on
+  its current newer approved revision and appends durable migration evidence to
+  the binding record (`BindingStore`) and the session branch, rather than chasing
+  an older or newly installed revision mid-session.
+- **Incompatible branches block model turns.** When navigating to a branch bound
+  to a different preset, a branch with a strict revision mismatch, a branch
+  requiring a newer revision than what is currently running, or a revision with
+  unmet requirements, Wardrobe intercepts and blocks subsequent model turns.
+  Blocked prompts are handled immediately without invoking the model provider,
+  leaving session history unchanged. The refusal notifies the user and provides
+  the exact relaunch plan:
+  ```sh
+  wardrobe run <preset> --resume <session-file>
+  ```
+  Navigating back to a compatible branch clears the block and unblocks model
+  turns immediately.
+- **Observability throughout navigation.** `/wardrobe status` displays the
+  active process PID, running code state (revision and preset), user
+  restrictions, and any active turn block with its relaunch plan.
+
 ## Launching a revision
 
 The standalone `wardrobe` command starts a verified revision. It lives in
