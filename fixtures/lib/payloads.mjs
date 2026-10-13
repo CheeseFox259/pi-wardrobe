@@ -93,7 +93,7 @@ A skill that does nothing, shipped so a preset can select a real one.
 /** Write a fixture package directory and return its path. */
 export function writeFixturePackage(
   dir,
-  { name, version, markerLog, source, exitCode, extensionLog, extraFiles }
+  { name, version, markerLog, source, exitCode, extensionLog, extraFiles, manifest: customManifest, pi: customPi }
 ) {
   const manifest = {
     name,
@@ -101,8 +101,12 @@ export function writeFixturePackage(
     type: "module",
     private: true,
     scripts: { postinstall: "node postinstall.mjs" },
-    pi: { extensions: ["extension.mjs"], skills: ["skills/review/SKILL.md"] },
+    pi: customPi ?? { extensions: ["extension.mjs"], skills: ["skills/review/SKILL.md"] },
+    ...customManifest,
   };
+  if (customPi) {
+    manifest.pi = customPi;
+  }
   writeFileSync(join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(
     join(dir, "postinstall.mjs"),
@@ -115,6 +119,11 @@ export function writeFixturePackage(
     const target = join(dir, file);
     ensureDir(dirname(target));
     writeFileSync(target, contents);
+  }
+  if (extraFiles && extraFiles["package.json"]) {
+    try {
+      Object.assign(manifest, JSON.parse(extraFiles["package.json"]));
+    } catch {}
   }
   return { dir, manifest };
 }

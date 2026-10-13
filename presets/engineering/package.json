@@ -1,0 +1,26 @@
+{
+  "name": "perfect-pi-engineering",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Perfect Pi Engineering reference preset",
+  "pi": {
+    "extensions": [
+      "extensions/question.ts",
+      "extensions/questionnaire.ts"
+    ],
+    "skills": [
+      "skills/route/SKILL.md",
+      "skills/grilling/SKILL.md",
+      "skills/domain-modeling/SKILL.md",
+      "skills/project-architecture/SKILL.md",
+      "skills/to-spec/SKILL.md",
+      "skills/to-tickets/SKILL.md",
+      "skills/implement/SKILL.md",
+      "skills/tdd/SKILL.md",
+      "skills/code-review/SKILL.md",
+      "skills/verify-product/SKILL.md",
+      "skills/research/SKILL.md",
+      "skills/setup-matt-pocock-skills/SKILL.md"
+    ]
+  }
+}

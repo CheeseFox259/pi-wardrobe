@@ -1,0 +1,44 @@
+# Perfect Pi Engineering Notice & Source Lineage Audit
+
+This preset bundles and references curated engineering extensions and skills.
+
+## Pinned Source Lineage
+
+1. **@aliou/pi-guardrails@0.19.0**
+   - Source: npm:@aliou/pi-guardrails@0.19.0
+   - Approved Entry Path: extensions/guardrails/index.ts
+   - Exclusions: path-access, permission-gate, herdr, and unreviewed handlers are not selected.
+   - Visible Limits: Enabling the package does not guarantee an undeclared private policy. Merely loading the extension does not enforce unconfigured policies.
+
+2. **@narumitw/pi-lsp@0.49.9**
+   - Source: npm:@narumitw/pi-lsp@0.49.9
+   - Approved Entry Path: dist/index.ts
+   - Tools Registered: lsp_diagnostics, lsp_fix
+   - Visible Limits: Requires an external language server binary (e.g. typescript-language-server, rust-analyzer). Language servers are never automatically installed; missing servers must be reported as unavailable truthfully.
+
+3. **Self Package Extensions**
+   - Source: . (perfect-pi-engineering)
+   - Entry Paths: extensions/question.ts, extensions/questionnaire.ts
+   - API: Uses Pi's public ExtensionAPI and host-provided TUI/TypeBox APIs without private manager shims.
+
+4. **Curated 12 Skill Families**
+   - Provenance: Curated Matt Pocock and Perfect Pi engineering skill families:
+     1. route (skills/route/SKILL.md)
+     2. grilling (skills/grilling/SKILL.md)
+     3. domain-modeling (skills/domain-modeling/SKILL.md)
+     4. project-architecture (skills/project-architecture/SKILL.md)
+     5. to-spec (skills/to-spec/SKILL.md)
+     6. to-tickets (skills/to-tickets/SKILL.md)
+     7. implement (skills/implement/SKILL.md)
+     8. tdd (skills/tdd/SKILL.md)
+     9. code-review (skills/code-review/SKILL.md)
+     10. verify-product (skills/verify-product/SKILL.md)
+     11. research (skills/research/SKILL.md)
+     12. setup-matt-pocock-skills (skills/setup-matt-pocock-skills/SKILL.md)
+   - Supporting References: bundled locally under respective skill directories.
+
+## Visible Boundaries & Default Exclusions
+
+- **Truthful Unavailability**: Missing workflow prerequisites (such as language server binaries, interactive question handlers, or external trackers) must be reported as unavailable before entering that workflow. They are never silently installed, and absent capabilities must never be claimed.
+- **Independence & Clean Environment**: This reference preset is completely optional. It does not modify personal settings, live Perfect Pi environments, or global credentials.
+- **No Heavy Defaults**: No default SoL-Pi, browser, web search, subagent execution framework, tmux orchestrator, or full toolchain dependencies are introduced.

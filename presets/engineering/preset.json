@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "perfect-pi/engineering",
+  "name": "Perfect Pi Engineering",
+  "version": "1.0.0",
+  "compatibility": { "pi": "1.1.0", "platforms": ["darwin-arm64"] },
+  "packages": {
+    "self": { "source": "." },
+    "guardrails": { "source": "npm:@aliou/pi-guardrails@0.19.0" },
+    "lsp": { "source": "npm:@narumitw/pi-lsp@0.49.9" }
+  },
+  "resources": [
+    { "package": "guardrails", "kind": "extensions", "include": ["extensions/guardrails/index.ts"], "exclude": [] },
+    { "package": "lsp", "kind": "extensions", "include": ["dist/index.ts"], "exclude": [] },
+    { "package": "self", "kind": "extensions", "include": ["extensions/question.ts", "extensions/questionnaire.ts"], "exclude": [] },
+    { "package": "self", "kind": "skills", "include": ["skills/route/SKILL.md", "skills/grilling/SKILL.md", "skills/domain-modeling/SKILL.md", "skills/project-architecture/SKILL.md", "skills/to-spec/SKILL.md", "skills/to-tickets/SKILL.md", "skills/implement/SKILL.md", "skills/tdd/SKILL.md", "skills/code-review/SKILL.md", "skills/verify-product/SKILL.md", "skills/research/SKILL.md", "skills/setup-matt-pocock-skills/SKILL.md"], "exclude": [] }
+  ],
+  "runtime": {
+    "tools": { "enable": ["question", "questionnaire", "lsp_diagnostics", "lsp_fix"], "disable": [] },
+    "thinking": "high"
+  },
+  "persona": { "append": ["Use the project's domain language and architecture decisions. Preserve unrelated changes and report observed verification evidence."] }
+}

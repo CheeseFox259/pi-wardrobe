@@ -79,6 +79,8 @@ export class NpmRegistryFixture {
         exitCode: spec.exitCode,
         extensionLog,
         extraFiles: spec.extraFiles,
+        manifest: spec.manifest,
+        pi: spec.pi,
       });
       // --ignore-scripts keeps the pack step itself from running the fixture's
       // deliberately failing postinstall.
@@ -102,10 +104,15 @@ export class NpmRegistryFixture {
     }
 
     const base = `/npm/${name}`;
-    server.json(base, () => ({
+    const packumentHandler = () => ({
       type: "application/json",
       body: JSON.stringify(buildPackument({ name, versions, tarballs, server, base })),
-    }));
+    });
+    server.json(base, packumentHandler);
+    if (name.includes("/")) {
+      server.json(`/npm/${name.replace(/\//g, "%2f")}`, packumentHandler);
+      server.json(`/npm/${name.replace(/\//g, "%2F")}`, packumentHandler);
+    }
     for (const [version, entry] of tarballs) {
       const path = `${base}/-/${name}-${version}.tgz`;
       server.bytes(path, () => ({ body: entry.bytes }));

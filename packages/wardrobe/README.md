@@ -45,6 +45,10 @@ The repository ships concrete reference presets under `presets/`:
   built-in tools (`read`, `edit`, `write`, `bash`), a default `medium` thinking level,
   and appended persona inspection rules. It declares no external packages, MCP
   servers, or Skill frameworks, and passes through the standard review and install path.
+- **Perfect Pi Engineering** (`presets/engineering/`): an engineering reference declaring
+  12 curated skill families, question and questionnaire extensions, pinned Guardrails 0.19.0
+  and LSP 0.49.9 packages with approved explicit entry paths, and truthful reporting of
+  unavailable workflow prerequisites without modifying personal settings.
 
 ## Composition and provenance
 

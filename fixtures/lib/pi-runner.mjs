@@ -372,6 +372,7 @@ export default function (pi) {
       const state = {
         tools: pi.getActiveTools(),
         allTools: pi.getAllTools().map((tool) => tool.name),
+        toolSources: pi.getAllTools().map((tool) => ({ name: tool.name, path: tool.sourceInfo?.path ?? null })),
         loads: globalThis.__wardrobeFixtureLoads ?? 0,
         thinkingLevel: ctx.thinkingLevel ?? null,
         model: ctx.model ? ctx.model.provider + "/" + ctx.model.id : null,
