@@ -14,10 +14,9 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { execPath } from "node:process";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { parseSource } from "./identity.mjs";
-import { git, run } from "./proc.mjs";
+import { dispatchPiCommand, git, run } from "./proc.mjs";
 import { digestMatches } from "./plan.mjs";
 import { diagnoseRevision } from "./doctor.mjs";
 import { measureRevision, piCliOf } from "./lock.mjs";
@@ -336,7 +335,8 @@ function installSourceOf(surface) {
 /** Run `pi install` through Pi's own package manager, in the staging directory. */
 async function runPiInstall(source, { attemptDir, env }) {
   const cli = piCli(env);
-  return run(execPath, [cli, "install", source], {
+  const [spawnFile, spawnArgs] = dispatchPiCommand(cli, ["install", source]);
+  return run(spawnFile, spawnArgs, {
     cwd: attemptDir,
     env: { ...env, PI_CODING_AGENT_DIR: attemptDir },
   });
@@ -356,8 +356,8 @@ function piCli(env) {
     throw WardrobeError.from("cannot locate the Pi executable", [
       new WardrobeDiagnostic({
         path: "",
-        reason: `no Pi CLI at ${env.WARDROBE_PI_CLI ?? process.argv[1] ?? "(none)"}`,
-        hint: "set WARDROBE_PI_CLI to the Pi entry point Wardrobe should install through",
+        reason: `no Pi CLI at ${env?.WARDROBE_PI_CLI ?? "(none)"}`,
+        hint: "set WARDROBE_PI_CLI, ensure pi is on PATH, or integrate with pi --wardrobe",
       }),
     ]);
   }
@@ -372,7 +372,8 @@ function piCli(env) {
  */
 async function inventoryOf(attemptDir, { plan, env }) {
   const cli = piCli(env);
-  const listed = await run(execPath, [cli, "list"], {
+  const [spawnFile, spawnArgs] = dispatchPiCommand(cli, ["list"]);
+  const listed = await run(spawnFile, spawnArgs, {
     cwd: attemptDir,
     env: { ...env, PI_CODING_AGENT_DIR: attemptDir },
   });

@@ -31,3 +31,18 @@ export async function git(args, options) {
   }
   return result.stdout;
 }
+
+/**
+ * Dispatch command and arguments for a Pi executable.
+ *
+ * If the CLI is a Node script (.js, .mjs), runs via process.execPath with the
+ * script path as the first argument; otherwise executes the binary/wrapper directly.
+ *
+ * @param {string} cli
+ * @param {string[]} args
+ * @returns {[file: string, args: string[]]}
+ */
+export function dispatchPiCommand(cli, args = []) {
+  const isScript = cli.endsWith(".js") || cli.endsWith(".mjs");
+  return isScript ? [process.execPath, [cli, ...args]] : [cli, [...args]];
+}

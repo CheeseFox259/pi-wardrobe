@@ -11,8 +11,8 @@
 // start. Where an observation cannot decide a question — an extension that
 // registers no command, a theme — it says so rather than reporting absence.
 
-import { execPath } from "node:process";
 import { spawn } from "node:child_process";
+import { dispatchPiCommand } from "./proc.mjs";
 
 /** How long a probe may take before it is treated as a failed startup. */
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -38,9 +38,11 @@ export async function probeLoadedState({
   // `--mode rpc` speaks the protocol on stdio; `--no-session` keeps the probe
   // from writing a session of its own. No resource flags: the point is to see
   // what the revision's own settings cause Pi to load.
+  const probeArgs = ["--mode", "rpc", "--no-session", "--session-dir", sessionDir, ...args];
+  const [spawnFile, spawnArgs] = dispatchPiCommand(cli, probeArgs);
   const child = spawn(
-    execPath,
-    [cli, "--mode", "rpc", "--no-session", "--session-dir", sessionDir, ...args],
+    spawnFile,
+    spawnArgs,
     {
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...env, PI_CODING_AGENT_DIR: agentDir },

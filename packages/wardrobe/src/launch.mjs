@@ -15,11 +15,11 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { execPath } from "node:process";
 import { homedir } from "node:os";
 import { dirname, join, parse as parsePath, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
+import { dispatchPiCommand } from "./proc.mjs";
 import { piCliOf } from "./lock.mjs";
 import { leaseViewOf, LeaseStore } from "./lease.mjs";
 import { probeLoadedState, reconcileSelection, selectedResourcesOf } from "./probe.mjs";
@@ -278,7 +278,7 @@ export async function preflightLaunch({
     revisionDir,
     sessionDir,
     activation,
-    cli: requireCli(env),
+    cli: requireCli(env, agentDir),
     binding: binding ?? null,
     migration: resolved.migration ?? null,
   };
@@ -483,11 +483,10 @@ export async function runRevision({
       );
     }
 
-    spawnedArgv = [
-      prepared.cli,
-      ...withManagerExtension(withSessionDir([...resuming.args, ...args], sessionDir)),
-    ];
-    child = spawn(execPath, spawnedArgv, {
+    const childArgs = withManagerExtension(withSessionDir([...resuming.args, ...args], sessionDir));
+    const [spawnFile, spawnArgs] = dispatchPiCommand(prepared.cli, childArgs);
+    spawnedArgv = [prepared.cli, ...childArgs];
+    child = spawn(spawnFile, spawnArgs, {
       stdio,
       // Two directories, deliberately: the revision's own is what Pi runs in,
       // and the manager's is where /wardrobe looks for revisions. A session
@@ -742,16 +741,16 @@ export function externalResourceRoots({ env = {}, cwd = process.cwd() } = {}) {
   return roots;
 }
 
-function requireCli(env) {
-  const cli = piCliOf(env);
+function requireCli(env, agentDir = null) {
+  const cli = piCliOf(env, { agentDir });
   if (!cli) {
     throw WardrobeError.from(
       "cannot locate the Pi executable",
       [
         new WardrobeDiagnostic({
           path: "",
-          reason: `no Pi CLI at ${env?.WARDROBE_PI_CLI ?? process.argv[1] ?? "(none)"}`,
-          hint: "set WARDROBE_PI_CLI to the Pi entry point this revision must run through",
+          reason: `no Pi CLI at ${env?.WARDROBE_PI_CLI ?? "(none)"}`,
+          hint: "set WARDROBE_PI_CLI, ensure pi is on PATH, or integrate with pi --wardrobe",
         }),
       ],
       "a revision is only ever launched by the Pi that verified it"

@@ -11,5 +11,11 @@
     "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
     "fixtures:verify": "node --test --test-concurrency=1 --test-reporter=spec \"test/**/*.test.mjs\" && node fixtures/report.mjs",
     "fixtures:report": "node fixtures/report.mjs"
+  },
+  "devDependencies": {
+    "node-pty": "^1.1.0"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
   }
 }

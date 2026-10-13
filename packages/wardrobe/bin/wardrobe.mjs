@@ -24,10 +24,12 @@
 // use` is the command to run from inside a session: it starts nothing.
 
 import { WardrobeDiagnostic, WardrobeError, describeFailure } from "../src/diagnostics.mjs";
+import { integrateDisable, integrateEnable } from "../src/integrate.mjs";
 import { launchPlanOf, preflightLaunch, runRevision } from "../src/launch.mjs";
 import { isStale, leaseReason, LeaseStore } from "../src/lease.mjs";
+import { runInteractiveSelector } from "../src/selector.mjs";
 
-const COMMANDS = ["run", "use"];
+const COMMANDS = ["run", "use", "integrate"];
 
 /**
  * One invocation of the launcher, as a function so it can be driven and checked
@@ -37,16 +39,58 @@ const COMMANDS = ["run", "use"];
  * needs is an exit status: `run` returns Pi's own, every refusal is non-zero,
  * and a plan writes JSON a caller can read.
  */
-async function main(argv, { env = process.env, stderr = process.stderr, stdout = process.stdout } = {}) {
+async function main(
+  argv,
+  {
+    env = process.env,
+    stderr = process.stderr,
+    stdout = process.stdout,
+    stdin = process.stdin,
+  } = {}
+) {
   const tokens = [...argv];
   const { positional, flags } = parseArgs(tokens);
-  const command = positional.shift() ?? "status";
+  const command = positional.shift();
+
+  if (!command) {
+    if (!stdin.isTTY) {
+      stderr.write(
+        "wardrobe: interactive startup selector requires a TTY\n" +
+          "  to run non-interactively, specify a revision:\n" +
+          "  wardrobe run <revision> [--agent-dir <path>]\n"
+      );
+      return 1;
+    }
+    const agentDir = resolveAgentDir(flags, env);
+    if (!agentDir) return explainNoAgentDir(stderr);
+    return runSelector({ agentDir, positional, flags, env, stdin, stdout, stderr });
+  }
+
   if (!COMMANDS.includes(command)) {
     stderr.write(
       `unknown wardrobe command ${JSON.stringify(command)}\navailable: ${COMMANDS.join(", ")}\n`
     );
     return 2;
   }
+
+  if (command === "integrate") {
+    const sub = positional.shift();
+    const dir = flagValue(flags, "dir");
+    const realPi = flagValue(flags, "real-pi") ?? flagValue(flags, "pi");
+    const agentDir = resolveAgentDir(flags, env);
+    if (sub === "enable") {
+      return integrateEnable({ dir, realPi, agentDir, env, stdout, stderr });
+    }
+    if (sub === "disable") {
+      return integrateDisable({ dir, stdout, stderr });
+    }
+    stderr.write(
+      `unknown integrate subcommand ${JSON.stringify(sub)}\n` +
+        "available: enable, disable\n"
+    );
+    return 2;
+  }
+
   if (command === "run") {
     const selector = positional.shift();
     if (!selector) {
@@ -93,49 +137,26 @@ async function main(argv, { env = process.env, stderr = process.stderr, stdout =
     stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
     return 0;
   }
-  const prepared = await preflightLaunch({
-    agentDir,
-    selector,
-    env: scoped,
-    runId: `plan-${Date.now().toString(36)}`,
-    sessionPath: flagValue(flags, "session"),
-  });
-  // The same refusal the slash command makes, from the same place: a lease that
-  // cannot be read is held, not absent.
-  const held = new LeaseStore(agentDir).read(prepared.report.revision);
-  if (held && !isStale(held)) {
-    stderr.write(
-      `wardrobe: revision ${prepared.report.revision} is busy\n` +
-        `  - ${leaseReason(held)}\n` +
-        "  - a launch plan for a busy revision would be a plan nobody can follow\n"
-    );
-    return 1;
-  }
-  const plan = launchPlanOf({
-    report: prepared.report,
-    plan: prepared.plan,
-    sessionDir: prepared.sessionDir,
-    agentDir,
-  });
-  stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
-  return 0;
 }
 
-async function run(selector, rest, flags, { env, stderr }) {
-  const agentDir = resolveAgentDir(flags, env);
-  if (!agentDir) return explainNoAgentDir(stderr);
+async function executeLaunch({
+  agentDir,
+  selector,
+  args = [],
+  flags,
+  env,
+  stderr,
+  resume = null,
+}) {
   try {
-    // Everything after `--` is Pi's, unchanged.
     const record = await runRevision({
       agentDir,
       selector,
-      args: rest,
+      args,
       env: { ...env, PI_CODING_AGENT_DIR: agentDir },
       sessionPath: flagValue(flags, "session"),
       cwd: flagValue(flags, "cwd") ?? process.cwd(),
-      // Resume continues a conversation Pi already persisted; it is a different
-      // thing from a session directory, which is where new ones are kept.
-      resume: flagValue(flags, "resume"),
+      resume: resume ?? flagValue(flags, "resume"),
       probe: flags.get("no-probe") !== true,
     });
     // Preflight findings are reported even on a clean exit: a launched
@@ -152,6 +173,35 @@ async function run(selector, rest, flags, { env, stderr }) {
     stderr.write(`wardrobe: ${error?.message ?? error}\n`);
     return 1;
   }
+}
+
+async function runSelector({ agentDir, positional, flags, env, stdin, stdout, stderr }) {
+  const chosen = await runInteractiveSelector({ agentDir, env, stdin, stdout, stderr });
+  if (chosen.action === "cancel") {
+    return chosen.exitCode ?? 0;
+  }
+  return executeLaunch({
+    agentDir,
+    selector: chosen.presetKey ?? chosen.report.revision,
+    args: positional,
+    flags,
+    env,
+    stderr,
+    resume: chosen.resume,
+  });
+}
+
+async function run(selector, rest, flags, { env, stderr }) {
+  const agentDir = resolveAgentDir(flags, env);
+  if (!agentDir) return explainNoAgentDir(stderr);
+  return executeLaunch({
+    agentDir,
+    selector,
+    args: rest,
+    flags,
+    env,
+    stderr,
+  });
 }
 
 function signalNumber(signal) {
@@ -222,15 +272,17 @@ function parseArgs(tokens) {
 
 export { main, parseArgs, resolveAgentDir };
 
-const invokedDirectly = process.argv[1] && process.argv[1].endsWith("bin/wardrobe.mjs");
+const invokedDirectly =
+  process.argv[1] &&
+  (process.argv[1].endsWith("bin/wardrobe.mjs") || process.argv[1].endsWith("wardrobe.mjs"));
 if (invokedDirectly) {
   main(process.argv.slice(2)).then(
     (code) => {
-      process.exitCode = code;
+      process.exit(code ?? 0);
     },
     (error) => {
       process.stderr.write(`${describeFailure(error instanceof WardrobeError ? error : WardrobeError.from(String(error?.message ?? error), [new WardrobeDiagnostic({ path: "", reason: "unhandled failure" })]))}\n`);
-      process.exitCode = 1;
+      process.exit(1);
     }
   );
 }

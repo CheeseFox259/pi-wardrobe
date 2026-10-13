@@ -211,16 +211,77 @@ Wardrobe reconciles the destination branch with the running process runtime:
   active process PID, running code state (revision and preset), user
   restrictions, and any active turn block with its relaunch plan.
 
-## Launching a revision
+## Launching a revision and startup selector
 
-The standalone `wardrobe` command starts a verified revision. It lives in
-`packages/wardrobe/bin/wardrobe.mjs` and is exposed as the package's `bin`.
+The standalone `wardrobe` command starts a verified revision or opens an
+interactive startup selector. It lives in `packages/wardrobe/bin/wardrobe.mjs` and
+is exposed as the package's `bin`.
 
 ```sh
-wardrobe run <revision> [args…]      # start it; everything after -- is Pi's
+wardrobe                             # open interactive startup selector (TTY)
+wardrobe run <revision> [args…]      # start it directly; everything after -- is Pi's
 wardrobe use <revision>              # print the launch plan and start nothing
-wardrobe status | doctor | list      # the same reads, as JSON or text
+wardrobe integrate enable --dir <dir>  # create a pi forwarding wrapper in <dir>
+wardrobe integrate disable --dir <dir> # remove the wardrobe pi wrapper from <dir>
 ```
+
+### Interactive startup selector
+
+Running bare `wardrobe` in an interactive terminal (TTY) displays the pre-Pi
+startup selector before any Pi process starts:
+
+- **Revision selection:** lists all installed presets and revisions measured
+  by `diagnoseAll`, showing availability status and any active notices.
+- **Mode choice:** toggles between `follow` (run newest approved revision and
+  record migrations) and `strict` (explicitly pins the chosen revision in
+  `BindingStore`).
+- **Session choice:** offers `Fresh session` or lists persisted sessions found
+  under `<revisionDir>/wardrobe/sessions/`. Choosing a persisted session passes
+  `--session <path>` to Pi.
+- **Validation:** unavailable or drifted revisions cannot be launched; selecting
+  one displays a clear refusal reason without spawning a child process.
+- **Controls:** Arrow keys navigate revisions and sessions, `Tab`/`m` toggles
+  mode, `Enter` validates and launches the selected revision, and `Esc`/`q`/`Ctrl-C`
+  cancels cleanly (exiting 0, acquiring no lease, and spawning no child process).
+- **Non-TTY failure:** invoking bare `wardrobe` in a non-interactive stream (pipes
+  or redirects) fails with exit code 1 and an actionable message directing the
+  caller to non-interactive `wardrobe run <revision>`.
+
+### Shell/PATH integration and forwarding
+
+`wardrobe integrate` provides optional, explicit, and reversible integration
+with the `pi` command:
+
+- `wardrobe integrate enable --dir <dir>` writes a thin executable wrapper script
+  named `pi` into `<dir>`.
+  - It resolves the absolute path to the real Pi binary and records it literally
+    inside the wrapper at enable time.
+  - It **never overwrites** an existing file: if `<dir>/pi` already exists, enable
+    refuses without modifying the file.
+  - It leaves unrelated shell profiles intact and prints the command needed to
+    prepend `<dir>` to `PATH`.
+- `wardrobe integrate disable --dir <dir>` removes `<dir>/pi` only if it contains
+  wardrobe's integration marker comment. Any foreign or unrelated file is refused.
+- **Wrapper forwarding semantics:**
+  - Ordinary Pi invocations (`pi`, `pi chat`, `pi --version`, `pi --help`, etc.)
+    forward directly to the recorded real Pi executable, preserving all arguments,
+    flags, working directory, exit status, and signal disposition.
+  - Opted-in `pi --wardrobe` strips the `--wardrobe` flag, sets `WARDROBE_PI_CLI`
+    to the recorded real Pi path, and execs the Wardrobe startup selector.
+  - **No recursion:** because the wrapper records the resolved real Pi path
+    literally, it never resolves through PATH at run time in a way that can hit
+    itself.
+
+### Real Pi resolution order
+
+When resolving the real Pi executable to launch or record:
+
+1. `WARDROBE_PI_CLI` environment variable (explicit override)
+2. Recorded path under `<agentDir>/wardrobe/pi-cli`
+3. PATH resolution for `pi`, strictly skipping wardrobe's own shims, wrappers,
+   and launcher script
+4. `process.argv[1]` when invoked inside a real Pi session as an extension
+   (excluding wardrobe's own CLI)
 
 The manager's own directory is named with `--agent-dir` or `WARDROBE_AGENT_DIR`,
 and `PI_CODING_AGENT_DIR` is deliberately not accepted: Pi exports it to every
@@ -478,6 +539,9 @@ npm test
 - `test/bindings-resume.test.mjs` — binding a preset, following approval order,
   refusing a strict mismatch, and persisting a conversation in one process and
   resuming it in another
+- `test/startup-selector-forwarder.test.mjs` — interactive standalone selector,
+  strict/follow modes, session resume, non-TTY failure, shell/PATH integration,
+  recursion avoidance, and real node-pty acceptance
 
 Tracked by
 [issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).
