@@ -438,6 +438,14 @@ with both candidates rather than guessing.
   as proposals until a preset is applied.
 - No rollback. A failed install leaves its files and its package script effects
   in place and reports them; a retry is a new attempt beside it.
+- No arbitrary-code sandboxing. Native installation runs package scripts via
+  Node/npm; external script side effects are reported as not claimed reversed,
+  and detached descendant processes are not guaranteed to be reclaimed.
+- No unconditional frozen transitive rebuild. Locks record exact measurements,
+  but do not promise frozen transitive dependency rebuild across time or networks.
+- No unverified platform support. The only verified baseline is Pi 1.1.0,
+  Node 26.5.0, npm 11.17.0 on macOS arm64 (`darwin arm64`). All other platforms
+  and runtime combinations remain explicitly unverified, not certified.
 
 ## Declaration contract
 
@@ -555,9 +563,18 @@ npm test
 - `test/startup-selector-forwarder.test.mjs` — interactive standalone selector,
   strict/follow modes, session resume, non-TTY failure, shell/PATH integration,
   recursion avoidance, and real node-pty acceptance
+- `test/branch-reconciliation.test.mjs` — branch navigation, fork inheritance,
+  incompatible turn blocking, and relaunch plans
+- `test/owned-revision-removal.test.mjs` — removal safety confinement, active lease
+  and strict reference blocking, and explicit retain/release
 - `test/minimal-reference.test.mjs` — Minimal Coding native reference preset:
   exact declaration shape, local discovery, git import, review, approval, launch,
   runtime tool/persona/reasoning observations, and manager independence
+- `test/engineering-reference.test.mjs` — Perfect Pi Engineering reference preset:
+  pinned native dependencies, 12 skill families, and honest missing dependency reporting
+- `test/integrated-v1-acceptance.test.mjs` — complete integrated V1 acceptance run:
+  manager install, discovery, cancellation, inactive staging, launch, soft/full transitions,
+  follow/strict resume, tree navigation blocking, drift/failure, removal, and baseline return
 
 Tracked by
 [issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).
