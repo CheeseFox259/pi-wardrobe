@@ -48,20 +48,71 @@ export function relaunchPlanFor({ preset, revision, sessionFile, reason }) {
 }
 
 /**
+ * Normalize a tool selection (plain names and/or `+name`/`-name` modifiers) into a list
+ * of effective tool names.
+ *
+ * When entries contain only removals (`["-x"]`), it resolves as baseline minus these.
+ * Otherwise, it resolves to plain names and additions minus removals.
+ *
+ * @param {Array<string|{tool: string}>} entries
+ * @param {Array<string|{tool: string}>} [baseline=[]]
+ * @returns {string[]}
+ */
+export function normalizeToolSelection(entries, baseline = []) {
+  if (!entries || !Array.isArray(entries)) return [];
+  const raw = entries
+    .map((e) => (typeof e === "string" ? e : (e?.tool ?? "")))
+    .filter(Boolean);
+  if (raw.length === 0) return [];
+
+  const additions = [];
+  const removals = new Set();
+  const plain = [];
+
+  for (const item of raw) {
+    if (item.startsWith("+")) {
+      const name = item.slice(1).trim();
+      if (name) additions.push(name);
+    } else if (item.startsWith("-")) {
+      const name = item.slice(1).trim();
+      if (name) removals.add(name);
+    } else {
+      const name = item.trim();
+      if (name) plain.push(name);
+    }
+  }
+
+  // Removals-only: baseline minus these
+  if (removals.size > 0 && additions.length === 0 && plain.length === 0) {
+    const base = normalizeToolSelection(baseline);
+    return [...new Set(base.filter((t) => !removals.has(t)))].sort();
+  }
+
+  const selected = new Set([...plain, ...additions]);
+  for (const rem of removals) {
+    selected.delete(rem);
+  }
+  return [...selected].sort();
+}
+
+/**
  * Compute the soft-field restore plan and detect if changes exist.
  */
-export function computeSoftRestorePlan({ desired, runtime, restrictions = [] }) {
+export function computeSoftRestorePlan({ desired, runtime, restrictions = [], baseline = null }) {
   const currentTools = runtime?.tools ?? [];
   const availableTools = runtime?.availableTools ?? currentTools;
   const currentModel = normalizeModelString(runtime?.model);
   const currentThinking = runtime?.thinking ?? null;
   const currentPersona = runtime?.persona ?? [];
 
-  const desiredTools = desired?.tools ?? [];
+  const baselineTools = baseline ?? runtime?.tools ?? [];
+  const enabledNames = normalizeToolSelection(desired?.tools, baselineTools);
+  const disabledNames = availableTools.filter((tool) => !enabledNames.includes(tool));
+
   const tools = planTools({
     wanted: {
-      enabled: desiredTools.map((tool) => ({ tool })),
-      disabled: availableTools.filter((tool) => !desiredTools.includes(tool)).map((tool) => ({ tool })),
+      enabled: enabledNames.map((tool) => ({ tool })),
+      disabled: disabledNames.map((tool) => ({ tool })),
       restricted: restrictions,
     },
     current: currentTools,
@@ -126,13 +177,15 @@ export function reconcileState({
     persona: runtime?.persona ?? [],
   };
 
+  const baselineTools = baseline?.tools ?? processState?.tools ?? runtime?.tools ?? [];
+
   const hasSessionEntry = Boolean(rawDesired && (rawDesired.appliedAt || rawDesired.revision));
   const desired = hasSessionEntry
     ? {
         preset: rawDesired?.preset ?? baseline?.preset ?? processState?.preset ?? null,
         mode: rawDesired?.mode ?? baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
         revision: rawDesired?.revision ?? baseline?.revision ?? processState?.revision ?? null,
-        tools: rawDesired?.tools ?? baseline?.tools ?? processState?.tools ?? [],
+        tools: normalizeToolSelection(rawDesired?.tools ?? baseline?.tools ?? processState?.tools ?? [], baselineTools),
         model: normalizeModelString(rawDesired?.model ?? baseline?.model ?? processState?.model),
         thinking: rawDesired?.thinking ?? baseline?.thinking ?? processState?.thinking ?? null,
         persona: rawDesired?.persona ?? baseline?.persona ?? processState?.persona ?? [],
@@ -141,7 +194,7 @@ export function reconcileState({
         preset: baseline?.preset ?? processState?.preset ?? null,
         mode: baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
         revision: baseline?.revision ?? processState?.revision ?? null,
-        tools: baseline?.tools ?? processState?.tools ?? [],
+        tools: normalizeToolSelection(baseline?.tools ?? processState?.tools ?? [], baselineTools),
         model: normalizeModelString(baseline?.model ?? processState?.model),
         thinking: baseline?.thinking ?? processState?.thinking ?? null,
         persona: baseline?.persona ?? processState?.persona ?? [],
@@ -155,7 +208,7 @@ export function reconcileState({
   ];
 
   const intended = {
-    tools: desired.tools,
+    tools: normalizeToolSelection(desired.tools, baselineTools),
     model: desired.model,
     thinking: desired.thinking,
     persona: desired.persona,
@@ -201,7 +254,7 @@ export function reconcileState({
   if (currentRestrictions.length > 0 && desiredReport) {
     const plan = plans.get(desiredReport.revision);
     const planEnabledNames = (plan?.runtime?.tools?.enabled ?? []).map((e) => (typeof e === "string" ? e : e.tool));
-    const desiredToolNames = (desired.tools ?? []).map((t) => (typeof t === "string" ? t : t.tool));
+    const desiredToolNames = normalizeToolSelection(desired.tools, baselineTools);
     const activeToolNames = new Set([...planEnabledNames, ...desiredToolNames]);
     const restrictedSet = new Set(currentRestrictions);
     const restrictedViolations = [...restrictedSet].filter((toolName) => activeToolNames.has(toolName));
@@ -263,7 +316,7 @@ export function reconcileState({
     return {
       status: "in-effect",
       reason: "strict match with active runtime",
-      restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions }),
+      restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions, baseline: baselineTools }),
       softFields: softReporting,
       desired,
     };
@@ -283,6 +336,7 @@ export function reconcileState({
         runtime,
         restrictions: currentRestrictions,
         softReporting,
+        baselineTools,
       });
     }
 
@@ -299,6 +353,7 @@ export function reconcileState({
           runtime,
           restrictions: currentRestrictions,
           softReporting,
+          baselineTools,
         });
       } else {
         // Desired revision is NEWER than process revision -> blocked!
@@ -358,13 +413,13 @@ export function reconcileState({
   return {
     status: "in-effect",
     reason: "compatible with active runtime",
-    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions }),
+    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions: currentRestrictions, baseline: baselineTools }),
     softFields: softReporting,
     desired,
   };
 }
 
-function followKeptResult({ desired, processRevision, runtime, restrictions, softReporting }) {
+function followKeptResult({ desired, processRevision, runtime, restrictions, softReporting, baselineTools = [] }) {
   const reason = "follow kept the running newer approved revision during tree navigation";
   return {
     status: "follow-kept",
@@ -378,7 +433,7 @@ function followKeptResult({ desired, processRevision, runtime, restrictions, sof
       mode: "follow",
       reason,
     },
-    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions }),
+    restorePlan: computeSoftRestorePlan({ desired, runtime, restrictions, baseline: baselineTools }),
     softFields: softReporting,
     desired,
   };

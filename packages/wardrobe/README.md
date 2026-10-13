@@ -37,6 +37,15 @@ source-qualified identity (`git:…@<sha>#<id>`), or its preset name. An
 ambiguous name is refused with the ids that do exist rather than resolved to a
 guess.
 
+## Reference presets
+
+The repository ships concrete reference presets under `presets/`:
+
+- **Minimal Coding** (`presets/minimal-coding/`): a native-only baseline declaring
+  built-in tools (`read`, `edit`, `write`, `bash`), a default `medium` thinking level,
+  and appended persona inspection rules. It declares no external packages, MCP
+  servers, or Skill frameworks, and passes through the standard review and install path.
+
 ## Composition and provenance
 
 A declaration is rarely the whole environment. Composition folds layers in one
@@ -542,6 +551,9 @@ npm test
 - `test/startup-selector-forwarder.test.mjs` — interactive standalone selector,
   strict/follow modes, session resume, non-TTY failure, shell/PATH integration,
   recursion avoidance, and real node-pty acceptance
+- `test/minimal-reference.test.mjs` — Minimal Coding native reference preset:
+  exact declaration shape, local discovery, git import, review, approval, launch,
+  runtime tool/persona/reasoning observations, and manager independence
 
 Tracked by
 [issue #15](https://github.com/CheeseFox259/pi-wardrobe/issues/15).

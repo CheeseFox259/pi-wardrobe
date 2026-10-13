@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "wardrobe/minimal-coding",
+  "name": "Minimal Coding",
+  "version": "1.0.0",
+  "compatibility": { "pi": "1.1.0", "platforms": ["darwin-arm64"] },
+  "packages": {},
+  "resources": [],
+  "runtime": {
+    "tools": { "enable": ["read", "edit", "write", "bash"], "disable": [] },
+    "thinking": "medium"
+  },
+  "persona": { "append": ["Inspect relevant code before changing it. Keep changes scoped and report checks actually run."] }
+}
