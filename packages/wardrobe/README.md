@@ -21,15 +21,18 @@ which starts a verified revision in a new process and nothing in this one.
 | `/wardrobe doctor [revision]` | The full diagnosis per revision: configuration, selected-resource content, installed code, baseline and declared runtime data, with every difference named |
 | `/wardrobe bind [preset] [--mode follow\|strict] [--revision <id>]` | Records what a preset is meant to run, and with no preset named, reports every binding, its mode and its migration history. Follow is the default; strict refuses to be recorded without a revision to pin |
 | `/wardrobe use <revision>` | Changes the running session when only preferences differ — tools, model preference, thinking level, appended instructions — and reports what is in effect beside what was intended. When packages, resources or code differ it returns the **new-process launch plan** instead, starts nothing, and is refused while the revision is busy |
+| `/wardrobe remove <preset> [--revision <id>]` | Deletes unreferenced owned revisions. With `--revision` deletes only that unreferenced revision; without `--revision` deletes all unreferenced revisions of the preset, refusing wholesale if any relevant revision is referenced or hazardous |
+| `/wardrobe release <preset> --revision <id>` | Drops an explicit retention reference without deleting conversation history or altering strict bindings |
+| `/wardrobe retain [preset] [--revision <id>]` | Explicitly retains a revision against removal, and with no arguments, lists all explicit retain references |
 
-`list`, `show`, `explain` and `status` also report installed revisions, so the
+`list`, `show`, `explain`, `status` and `remove` also report installed revisions, so the
 declared shape of a preset and the state of any revision built from it are
 never merged into one claim. `show` and `explain` match on the source-qualified
 identity of the declaration they were asked about: a local declaration that
 shares an id with an installed revision reports no revision of its own rather
 than borrowing another source's state.
 
-`status`, `doctor` and `use` address a revision by its revision id, its
+`status`, `doctor`, `use`, `remove`, `release` and `retain` address a revision by its revision id, its
 source-qualified identity (`git:…@<sha>#<id>`), or its preset name. An
 ambiguous name is refused with the ids that do exist rather than resolved to a
 guess.
@@ -413,6 +416,42 @@ capture the declaration. Resource paths are not materialised there: they are
 package-relative, so they can only be resolved once the declared package is
 installed. Installed revisions and their records live under
 `<agentDir>/wardrobe/staging/`.
+
+## Revision removal and retained references
+
+`/wardrobe remove` and `/wardrobe release` manage the lifecycle of installed
+revisions. Deletion is guarded, un-automated, and confined strictly to the
+manager's owned staging storage.
+
+```sh
+/wardrobe retain <preset> --revision <id>   # explicitly retain a revision against deletion
+/wardrobe retain                            # list all explicit retain references
+/wardrobe release <preset> --revision <id>  # drop an explicit retention reference
+/wardrobe remove <preset> --revision <id>   # delete a single unreferenced owned revision
+/wardrobe remove <preset>                   # delete all unreferenced revisions of a preset
+```
+
+- **References block removal.** A revision cannot be removed while it has an
+  active lease, is running in the current session, is pinned by a strict binding,
+  or is explicitly retained. Follow history (migrations, past launches) does
+  not pin old revisions forever.
+- **Strict bindings must be deliberately changed.** Removing a strict-pinned
+  revision is refused and names the way out (`/wardrobe bind <preset> --mode follow`).
+  Removal never silently alters or bypasses strict mode.
+- **Releasing drops explicit retention without collateral damage.**
+  `/wardrobe release` drops the retention pin without deleting conversation
+  transcripts and without changing strict mode. If a strict binding still pins the
+  revision, removal remains blocked until deliberately rebound.
+- **Wholesale refusal without `--revision`.** `/wardrobe remove <preset>` evaluates
+  every installed revision of the preset. If any revision is referenced or has a
+  safety hazard, the entire operation is refused wholesale and nothing is partially
+  deleted.
+- **Safety confinement.** Removal verifies that target directories are strictly
+  inside `<agentDir>/wardrobe/staging/`. Escaping symlinks, missing paths, stale
+  leases, and ambiguous ownership are diagnosed and refused. Package cleanup
+  operates only inside the owned revision root; sibling revisions and the user's
+  personal environment remain intact, and install-script external effects are
+  reported as not claimed reversed.
 
 ## Checks
 

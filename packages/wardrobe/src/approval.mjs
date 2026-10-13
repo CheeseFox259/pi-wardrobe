@@ -5,10 +5,11 @@
 // and the approval is refused. There is deliberately no "approve everything"
 // path and no way to approve without presenting a digest first.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { digestMatches, digestOf } from "./plan.mjs";
+import { assertSafeId } from "./staging.mjs";
 
 export class PlanStore {
   constructor(agentDir) {
@@ -16,16 +17,19 @@ export class PlanStore {
   }
 
   #pathFor(planId) {
+    assertSafeId(planId);
     return join(this.root, `${planId}.json`);
   }
 
   save(sealed) {
+    assertSafeId(sealed.planId);
     mkdirSync(this.root, { recursive: true });
     writeFileSync(this.#pathFor(sealed.planId), `${JSON.stringify(sealed, null, 2)}\n`);
     return sealed;
   }
 
   read(planId) {
+    assertSafeId(planId);
     const path = this.#pathFor(planId);
     if (!existsSync(path)) {
       throw WardrobeError.from("unknown review plan", [
@@ -34,6 +38,14 @@ export class PlanStore {
       ]);
     }
     return JSON.parse(readFileSync(path, "utf8"));
+  }
+
+  delete(planId) {
+    assertSafeId(planId);
+    const path = this.#pathFor(planId);
+    if (existsSync(path)) {
+      rmSync(path, { force: true });
+    }
   }
 
   /**

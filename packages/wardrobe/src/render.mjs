@@ -25,6 +25,12 @@ export function renderResult(result) {
       return result.kind === "soft" ? renderSoftUse(result) : renderUse(result);
     case "bind":
       return renderBind(result);
+    case "remove":
+      return renderRemove(result);
+    case "release":
+      return renderRelease(result);
+    case "retain":
+      return renderRetain(result);
     default:
       return `${result.command}: done`;
   }
@@ -172,6 +178,9 @@ function renderStatus(result) {
   lines.push(...revisionLines(result.revisions));
   for (const binding of result.bindings ?? []) {
     lines.push(`  binding: ${binding.preset}  ${describeBinding(binding)}`);
+  }
+  for (const retain of result.retains ?? []) {
+    lines.push(`  retained: ${retain.preset} -> ${retain.revision}`);
   }
   lines.push(...renderDesired(result.desired, result.effective));
   for (const entry of result.unreadable ?? []) {
@@ -387,6 +396,9 @@ function renderDoctor(result) {
   for (const binding of result.bindings ?? []) {
     lines.push(`  binding ${binding.preset}: ${describeBinding(binding)}`);
   }
+  for (const retain of result.retains ?? []) {
+    lines.push(`  retained ${retain.preset}: ${retain.revision}`);
+  }
   lines.push(...renderDesired(result.desired, null));
   for (const revision of result.revisions) lines.push(...renderDiagnosis(revision));
   for (const entry of result.unreadable ?? []) {
@@ -546,4 +558,43 @@ function renderExplain(result) {
     `  state: ${result.preset.state}  installed: ${result.installed}  active: ${result.active}`
   );
   return lines.join("\n");
+}
+
+function renderRemove(result) {
+  const lines = [
+    `Removed owned revisions for ${result.preset}:`,
+    ...result.removed.map((rev) => `  - ${rev}`),
+    "  script external effects: not claimed reversed",
+  ];
+  if (result.transcriptsDestroyed) {
+    lines.push(`  session transcripts destroyed: ${result.transcriptsDestroyed.count}`);
+    for (const path of result.transcriptsDestroyed.paths) {
+      lines.push(`    - ${path}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function renderRelease(result) {
+  const lines = [
+    `Released explicit retention for ${result.preset} (revision ${result.revision})`,
+  ];
+  if (result.stillBlockedByStrict) {
+    lines.push(
+      "  note: strict binding still pins this revision; removal remains blocked until deliberately re-bound"
+    );
+  }
+  return lines.join("\n");
+}
+
+function renderRetain(result) {
+  if (result.mode === "read") {
+    const lines = ["Wardrobe explicitly retained revisions:"];
+    if (result.retains.length === 0) lines.push("  (none recorded)");
+    for (const r of result.retains) {
+      lines.push(`  ${r.preset} -> ${r.revision}`);
+    }
+    return lines.join("\n");
+  }
+  return `Retained preset ${result.preset} (revision ${result.revision})`;
 }

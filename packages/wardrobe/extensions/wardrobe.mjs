@@ -295,7 +295,7 @@ export default function (pi) {
   });
 
   pi.registerCommand("wardrobe", {
-    description: "Inspect Wardrobe presets and revisions: list, show, explain, install, status, doctor, use",
+    description: "Inspect Wardrobe presets and revisions: list, show, explain, install, status, doctor, use, bind, remove, release, retain",
     handler: async (args, ctx) => {
       const managerDir = process.env.WARDROBE_AGENT_DIR || revisionDir;
       const binding = baseline?.preset ? new BindingStore(managerDir).read(baseline.preset) : null;

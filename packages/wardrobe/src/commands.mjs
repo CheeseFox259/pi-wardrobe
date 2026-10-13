@@ -37,10 +37,12 @@ import { launchPlanOf, preflightLaunch } from "./launch.mjs";
 import { isStale, leaseReason, LeaseStore } from "./lease.mjs";
 import { stagingViewOf } from "./staging.mjs";
 import { bindRequest, BindingStore, LaunchRecords, resolveBinding } from "./binding.mjs";
+import { listRetains, RetainStore } from "./retain.mjs";
+import { removeRevisions, releaseRetain, retainRevision } from "./removal.mjs";
 import { composeFor, planFor } from "./review.mjs";
 import { PresetStore, discover, sourceDirs } from "./store.mjs";
 
-const COMMANDS = ["list", "show", "explain", "install", "status", "doctor", "use", "bind"];
+const COMMANDS = ["list", "show", "explain", "install", "status", "doctor", "use", "bind", "remove", "release", "retain"];
 
 const FIELD_KINDS = {
   schemaVersion: "metadata",
@@ -161,6 +163,15 @@ export async function runCommand(input, { env = process.env, session = null } = 
       // Awaited inside the try, so a refused revision is reported rather than
       // thrown at the session.
       return await use(command, positional.join(" "), flags, { dir, env, session });
+    }
+    if (command === "remove") {
+      return await remove(command, positional, flags, { dir, env, session });
+    }
+    if (command === "release") {
+      return await release(command, positional, flags, { dir, env });
+    }
+    if (command === "retain") {
+      return await retain(command, positional, flags, { dir, env });
     }
 
     const store = new PresetStore(dir);
@@ -451,6 +462,7 @@ async function status(command, selector, { dir, env, session }) {
     selected: selected ? oneLine(selected) : null,
     revisions: reports.map(oneLine),
     bindings: new BindingStore(dir).list().map(bindingViewOf),
+    retains: new RetainStore(dir).list(),
     // What each binding would run now, beside what this session is running.
     // The two are separate facts and a mismatch is the answer.
     desired: bindingsDesiredBy(dir, reports, plans),
@@ -505,6 +517,7 @@ async function doctor(command, selector, { dir, env }) {
     state: bindingAwareSummary(dir, reports, plans, reportsSummary(chosen)),
     revisions: chosen,
     bindings: new BindingStore(dir).list().map(bindingViewOf),
+    retains: new RetainStore(dir).list(),
     desired: bindingsDesiredBy(dir, reports, plans),
     unreadable,
   });
@@ -879,6 +892,67 @@ async function softUse({ agentDir, env, session, target }) {
     installed: false,
     active: false,
   });
+}
+
+async function remove(command, positional, flags, { dir, env, session = null }) {
+  const selector = positional[0] ?? null;
+  if (flags.has("revision") && typeof flags.get("revision") !== "string") {
+    throw WardrobeError.from(
+      "--revision flag needs a revision argument",
+      [],
+      "usage: /wardrobe remove <preset> --revision <revision>"
+    );
+  }
+  const revision = typeof flags.get("revision") === "string" ? flags.get("revision") : null;
+  const result = await removeRevisions({
+    agentDir: dir,
+    presetSelector: selector,
+    revisionSelector: revision,
+    session,
+    env,
+  });
+  return success(command, result);
+}
+
+async function release(command, positional, flags, { dir, env }) {
+  const selector = positional[0] ?? null;
+  if (flags.has("revision") && typeof flags.get("revision") !== "string") {
+    throw WardrobeError.from(
+      "--revision flag needs a revision argument",
+      [],
+      "usage: /wardrobe release <preset> --revision <revision>"
+    );
+  }
+  const revision = typeof flags.get("revision") === "string" ? flags.get("revision") : null;
+  const result = await releaseRetain({
+    agentDir: dir,
+    presetSelector: selector,
+    revision,
+    env,
+  });
+  return success(command, result);
+}
+
+async function retain(command, positional, flags, { dir, env }) {
+  const selector = positional[0] ?? null;
+  if (!selector) {
+    return success(command, listRetains(dir));
+  }
+  if (flags.has("revision") && typeof flags.get("revision") !== "string") {
+    throw WardrobeError.from(
+      "--revision flag needs a revision argument",
+      [],
+      "usage: /wardrobe retain <preset> --revision <revision>"
+    );
+  }
+  const revision = typeof flags.get("revision") === "string" ? flags.get("revision") : null;
+  const result = await retainRevision({
+    agentDir: dir,
+    presetSelector: selector,
+    revision,
+    env,
+  });
+  return success(command, result);
 }
 
 /** The model the revision this session is running declares, if any. */

@@ -10,7 +10,7 @@
 // explicitly failed/unavailable rather than rolled back, because Pi's install
 // runs package scripts and leaves whatever they left.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join, relative, sep } from "node:path";
 import { lockDigestOf } from "./lock.mjs";
 
@@ -30,12 +30,71 @@ export function inactiveSettings(declarations) {
   };
 }
 
+export function assertSafeId(id) {
+  if (
+    typeof id !== "string" ||
+    id.length === 0 ||
+    id.includes("/") ||
+    id.includes("\\") ||
+    id.includes("..") ||
+    id.includes("\0")
+  ) {
+    throw new Error(`invalid identifier ${JSON.stringify(id)}: path traversal is not permitted`);
+  }
+}
+
+/**
+ * Verify that a revision's root directory and every attempt directory stay
+ * strictly confined within the owned staging root.
+ *
+ * @throws {Error} if escaping symlinks, missing paths, or outside paths are detected
+ */
+export function verifyPlanConfinement({ stagingRoot, planId, attemptDirs = [] }) {
+  assertSafeId(planId);
+  if (!existsSync(stagingRoot)) {
+    throw new Error(`staging root ${stagingRoot} does not exist`);
+  }
+  const realStagingRoot = realpathSync(stagingRoot);
+  const planRoot = join(stagingRoot, planId);
+  if (!existsSync(planRoot)) {
+    throw new Error(`revision directory ${planRoot} does not exist on disk`);
+  }
+  const realPlanRoot = realpathSync(planRoot);
+  if (!realPlanRoot.startsWith(realStagingRoot + sep) || realPlanRoot === realStagingRoot) {
+    throw new Error(
+      `revision root ${planRoot} (resolving to ${realPlanRoot}) escapes staging root ${realStagingRoot}`
+    );
+  }
+  for (const attemptDir of attemptDirs) {
+    if (!attemptDir || !existsSync(attemptDir)) {
+      throw new Error(`attempt directory ${attemptDir ?? "(none)"} does not exist on disk`);
+    }
+    const realAttemptDir = realpathSync(attemptDir);
+    if (!realAttemptDir.startsWith(realPlanRoot + sep) || realAttemptDir === realPlanRoot) {
+      throw new Error(
+        `attempt directory ${attemptDir} (resolving to ${realAttemptDir}) escapes revision root ${realPlanRoot}`
+      );
+    }
+  }
+  for (const entry of readdirSync(planRoot)) {
+    const entryPath = join(planRoot, entry);
+    const realEntryPath = realpathSync(entryPath);
+    if (!realEntryPath.startsWith(realPlanRoot + sep) || realEntryPath === realPlanRoot) {
+      throw new Error(
+        `revision entry ${entryPath} (resolving to ${realEntryPath}) escapes revision root ${realPlanRoot}`
+      );
+    }
+  }
+  return { planRoot, realPlanRoot, realStagingRoot };
+}
+
 export class StagingStore {
   constructor(agentDir) {
     this.root = join(agentDir, "wardrobe", "staging");
   }
 
   #recordPath(planId) {
+    assertSafeId(planId);
     return join(this.root, `${planId}.json`);
   }
 
@@ -90,6 +149,27 @@ export class StagingStore {
   /** The attempt number a new install of this revision would use. */
   nextAttempt(record) {
     return (record?.attempts?.length ?? 0) + 1;
+  }
+
+  /**
+   * Delete an installed revision: remove its record and its attempt directories.
+   *
+   * Verifies realpath confinement within staging before any deletion occurs,
+   * ensuring metadata is never destroyed if confinement fails.
+   */
+  delete(planId) {
+    assertSafeId(planId);
+    const planRoot = join(this.root, planId);
+    if (existsSync(planRoot)) {
+      verifyPlanConfinement({ stagingRoot: this.root, planId });
+    }
+    const record = this.#recordPath(planId);
+    if (existsSync(record)) {
+      rmSync(record, { force: true });
+    }
+    if (existsSync(planRoot)) {
+      rmSync(planRoot, { recursive: true, force: true });
+    }
   }
 }
 

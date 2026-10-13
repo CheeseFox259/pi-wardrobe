@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
+import { assertSafeId } from "./staging.mjs";
 
 /** What a lease authorises. Both write to the revision directory. */
 const LEASE_KINDS = ["run", "write"];
@@ -23,6 +24,7 @@ export class LeaseStore {
   }
 
   #pathFor(revision) {
+    assertSafeId(revision);
     return join(this.root, `${revision}.json`);
   }
 
@@ -56,6 +58,12 @@ export class LeaseStore {
     if (held.runId !== runId) return false;
     rmSync(this.#pathFor(revision), { force: true });
     return true;
+  }
+
+  /** Delete any lease record for this revision unconditionally. */
+  delete(revision) {
+    assertSafeId(revision);
+    rmSync(this.#pathFor(revision), { force: true });
   }
 
   /**
