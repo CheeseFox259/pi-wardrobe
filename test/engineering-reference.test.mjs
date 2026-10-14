@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
 import { validateDefinition } from "../packages/wardrobe/src/schema.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, latestRequest, sessionState, useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("engineering-reference");
 const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -72,13 +72,6 @@ async function installManager(h) {
 async function repo(h, name, commits) {
   repos[name] ??= await h.gitRepo(name, commits);
   return repos[name];
-}
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 async function wardrobe(h, argument, { extraEnv } = {}) {
@@ -192,20 +185,6 @@ function launched(h, revisionId, { revisionDir, args = [] } = {}) {
   };
 
   return { child, send, command, close, kill, waitForCommands, useLocalModel, stderr: () => stderr };
-}
-
-function sessionState(revisionDir) {
-  const path = join(revisionDir, "fixture-state.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
-}
-
-function latestRequest(revisionDir) {
-  const path = join(revisionDir, "fixture-request.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
 }
 
 async function waitForRequest(revisionDir, timeoutMs = 30_000) {

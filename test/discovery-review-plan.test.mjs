@@ -88,6 +88,41 @@ test("GitHub references normalize to one canonical source", () => {
   assert.match(refusal(() => normalizeGithub("")), /GitHub source is empty/);
 });
 
+test("a github: source resolves, reviews, approves and installs end-to-end via loopback fixture", async () => {
+  const h = harness();
+  await installManager(h);
+  const git = await repo(h, "github-org/github-repo", [
+    { message: "add github preset", files: { "preset.json": `${JSON.stringify(declaration({ id: "gh-preset", name: "GitHub Preset" }))}\n` } },
+  ]);
+
+  const ghEnv = { WARDROBE_GITHUB_HOST: `${h.server.origin}/git` };
+
+  // 1. Discovery and review plan: resolve commit SHA from loopback Git fixture
+  const reviewed = await wardrobe(h, "install github:github-org/github-repo", { extraEnv: ghEnv });
+  assert.equal(reviewed.ok, true, reviewed.text);
+  assert.equal(reviewed.state, "awaiting-approval");
+  assert.equal(reviewed.installed, false);
+  assert.equal(reviewed.active, false);
+  assert.equal(reviewed.plan.source.kind, "git");
+  assert.equal(reviewed.plan.source.locator, "github:github-org/github-repo");
+  assert.equal(reviewed.plan.source.commit, git.commits[0]);
+  assert.match(reviewed.plan.digest, /^[0-9a-f]{64}$/);
+
+  // 2. Approval and installation bound to the review plan digest
+  const confirmed = await wardrobe(h, `install github:github-org/github-repo --confirm ${reviewed.plan.digest}`, { extraEnv: ghEnv });
+  assert.equal(confirmed.ok, true, confirmed.text);
+  assert.equal(confirmed.state, "available", confirmed.text);
+  assert.equal(confirmed.installed, true);
+  assert.equal(confirmed.plan.digest, reviewed.plan.digest);
+
+  h.record("github-source-discovery-and-install-verified", {
+    source: "github:github-org/github-repo",
+    resolvedCommit: reviewed.plan.source.commit,
+    digest: reviewed.plan.digest,
+    installed: confirmed.installed,
+  });
+});
+
 test("a Git source is really fetched at a full commit", async () => {
   const h = harness();
   await installManager(h);

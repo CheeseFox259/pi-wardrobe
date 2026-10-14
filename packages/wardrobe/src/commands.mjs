@@ -82,7 +82,12 @@ function agentDir(env) {
   return dir;
 }
 
-/** Parse `--flag value` pairs out of a command's arguments. */
+/**
+ * Parse `--flag value` pairs out of a command's arguments.
+ *
+ * WHY: Differs deliberately from bin/wardrobe.mjs parseArgs: in-session slash
+ * commands parse internal flags only and have no `--` child-process passthrough semantics.
+ */
 function parseArgs(tokens) {
   const positional = [];
   const flags = new Map();

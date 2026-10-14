@@ -51,9 +51,9 @@ export class PlanStore {
   /**
    * Record approval for a plan, only if the caller quotes its current digest.
    *
-   * @param {{planId: string, digest: string, requireDisplayed: boolean}} request
+   * @param {{planId: string, digest: string}} request
    */
-  approve({ planId, digest, requireDisplayed = true }) {
+  approve({ planId, digest }) {
     const stored = this.read(planId);
     if (!digestMatches(stored)) {
       throw WardrobeError.from("stored plan no longer matches its digest", [
@@ -64,7 +64,8 @@ export class PlanStore {
         }),
       ]);
     }
-    if (requireDisplayed && digest !== stored.digest) {
+    // The digest check is unconditional: there is no way to approve without quoting the displayed digest.
+    if (digest !== stored.digest) {
       throw WardrobeError.from("approval digest does not match the displayed plan", [
         new WardrobeDiagnostic({
           path: "/digest",

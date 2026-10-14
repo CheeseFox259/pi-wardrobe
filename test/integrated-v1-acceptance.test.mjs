@@ -34,6 +34,7 @@ import { BindingStore } from "../packages/wardrobe/src/binding.mjs";
 import { ORIGINAL_PREFERENCES, SENTINEL_NAMES } from "../fixtures/index.mjs";
 import {
   assertSettingsMatch,
+  launchEnv,
   preferenceSnapshot,
   useHarness,
 } from "./support/harness.mjs";
@@ -42,17 +43,6 @@ const harness = useHarness("integrated-v1-acceptance");
 const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const MANAGER_DIR = join(REPO_ROOT, "packages", "wardrobe");
 const CLI = join(MANAGER_DIR, "bin", "wardrobe.mjs");
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: {
-      WARDROBE_PI_CLI: h.runtime.cliPath,
-      WARDROBE_REGISTRY: `${h.server.origin}/npm/`,
-      ...extra,
-    },
-  });
-}
 
 function sentinelDigests(h, agent) {
   const snapshot = h.snapshotAgent(agent);
@@ -232,9 +222,53 @@ function runRecords(h) {
     .sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)));
 }
 
+function outcomeStatus(payload, requiredStages) {
+  if (typeof payload?.failures === "number" && payload.failures > 0) {
+    return "Failed";
+  }
+  const records = payload?.records ?? [];
+  const map = new Map(records.map((r) => [r.name, r.details]));
+  for (const name of requiredStages) {
+    if (!map.has(name)) return "Not Run";
+    const details = map.get(name);
+    if (details?.outcome === "failed" || details?.failed === true) return "Failed";
+  }
+  return "Verified";
+}
+
 /** Render comprehensive Markdown acceptance report with 14-outcome mapping. */
 function renderIntegratedMarkdown(payload) {
   const runtime = payload.runtime;
+  const allStages = [
+    "stage-01-manager-installed",
+    "stage-02-discovery-review",
+    "stage-03-review-cancellation",
+    "stage-04-approved-install-inactive",
+    "stage-05-isolated-launch",
+    "stage-06-soft-and-full-transition",
+    "stage-07-follow-strict-resume",
+    "stage-08-tree-navigation-blocking",
+    "stage-09-drift-and-failed-install",
+    "stage-10-retain-release-guards",
+    "stage-11-removal-and-baseline-restoration",
+    "stage-12-selector-wrapper-integration",
+  ];
+
+  const s1 = outcomeStatus(payload, ["stage-01-manager-installed"]);
+  const s2 = outcomeStatus(payload, ["stage-02-discovery-review"]);
+  const s3 = outcomeStatus(payload, ["stage-02-discovery-review"]);
+  const s4 = outcomeStatus(payload, ["stage-03-review-cancellation", "stage-04-approved-install-inactive"]);
+  const s5 = outcomeStatus(payload, ["stage-04-approved-install-inactive", "stage-05-isolated-launch", "stage-09-drift-and-failed-install"]);
+  const s6 = outcomeStatus(payload, ["stage-05-isolated-launch"]);
+  const s7 = outcomeStatus(payload, ["stage-06-soft-and-full-transition"]);
+  const s8 = outcomeStatus(payload, ["stage-09-drift-and-failed-install"]);
+  const s9 = outcomeStatus(payload, ["stage-07-follow-strict-resume"]);
+  const s10 = outcomeStatus(payload, ["stage-07-follow-strict-resume", "stage-08-tree-navigation-blocking"]);
+  const s11 = outcomeStatus(payload, ["stage-10-retain-release-guards", "stage-11-removal-and-baseline-restoration"]);
+  const s12 = outcomeStatus(payload, ["stage-08-tree-navigation-blocking", "stage-09-drift-and-failed-install"]);
+  const s13 = outcomeStatus(payload, ["stage-12-selector-wrapper-integration"]);
+  const s14 = outcomeStatus(payload, allStages);
+
   const lines = [
     "# Integrated V1 Acceptance Evidence: Process, Lifecycle, and Documentation",
     "",
@@ -257,20 +291,20 @@ function renderIntegratedMarkdown(payload) {
     "",
     "| # | Specification Outcome | Status | Observed Test / Check & Verification Details |",
     "| - | --------------------- | ------ | --------------------------------------------- |",
-    "| 1 | Clean install without auto-installing references | Verified | `stage-01-manager-installed`: `/wardrobe` registered alone; zero preset/MCP/skill/browser dependencies added |",
-    "| 2 | Discover/select with identity normalization & review preview | Verified | `stage-02-discovery-review`: GitHub normalization, full-SHA pin, explicit multi-preset selection, integrity & pre-install code surfaces |",
-    "| 3 | Reject invalid declarations, tampering, and conflicting constraints | Verified | Declaration rejections proven by unit suites: `test/schema-strict.test.mjs` (unknown fields, paths, cycles), `test/composition-provenance.test.mjs` (alias rebinding, conflicting versions), `test/discovery-review-plan.test.mjs` (missing/escaping paths, unpinned git); plus integrated check in `stage-02-discovery-review` (tampered digest confirmation refused) |",
-    "| 4 | Cancellation leaves nothing installed; noninteractive approval bound | Verified | `stage-03-review-cancellation`: Zero staging records; personal files intact; approval strictly bound to digest in `stage-04-approved-install-inactive` |",
-    "| 5 | Native install inactive until launch; failed staging reported; writer lock refusal | Verified | `stage-04-approved-install-inactive` (filtered `[]` resources); `stage-05-isolated-launch` (live competing writer refused); `test/isolated-pi-launch.test.mjs` (~349, stale ownership diagnosed and replaced, live never stolen); `test/owned-revision-removal.test.mjs` (~183, stale lease diagnosed & blocks removal); `stage-09-drift-and-failed-install` (failed install retained with `rolledBack: false`) |",
-    "| 6 | Activation exposes loaded resources; preserves user choices & restrictions | Verified | `stage-05-isolated-launch`: Settings rewritten with active selections, RPC verifies tool & extension presence |",
-    "| 7 | Switching presets; soft change in place vs idle full-switch launch plan | Verified | `stage-06-soft-and-full-transition`: In-place PID preservation for preferences; launch plan for code differences |",
-    "| 8 | Locks cover configuration, resources, code, baseline; drift refused | Verified | `stage-09-drift-and-failed-install`: Tampered code diagnosed as `drifted` by doctor; subsequent launch refused |",
-    "| 9 | Follow/strict resume semantics; follow uses approval order | Verified | `stage-07-follow-strict-resume`: Follow chooses newest approved revision (0.9.0 over 2.0.0); strict pins and refuses |",
-    "| 10 | History preservation, fork inheritance, tree navigation blocking | Verified | `stage-07-follow-strict-resume` (conversation restored); `stage-08-tree-navigation-blocking` (incompatible branch blocks turns with relaunch plan, transcript unmutated) |",
-    "| 11 | Removal affects only unreferenced state; release drops retains | Verified | `stage-10-retain-release-guards` (retain and strict block remove; release drops retain without collateral damage); `test/owned-revision-removal.test.mjs` (~183, stale lease blocks removal until cleared); `stage-11-removal-and-baseline-restoration` (owned removal) |",
-    "| 12 | Status, doctor, and explain report honesty without secrets | Verified | `stage-08-tree-navigation-blocking` & `stage-09-drift-and-failed-install`: Status and doctor truthfully reflect runtime blocks and drift |",
-    "| 13 | pi --wardrobe selector & opt-in forwarding shell wrapper | Verified | `stage-12-selector-wrapper-integration`: Forwarding wrapper created, recorded real Pi path, removed cleanly |",
-    "| 14 | Complete process/PTY acceptance with controlled transports | Verified | Unified acceptance suite run end-to-end under `test/integrated-v1-acceptance.test.mjs` with PTY acceptance under `test/startup-selector-forwarder.test.mjs` |",
+    `| 1 | Clean install without auto-installing references | ${s1} | \`stage-01-manager-installed\`: \`/wardrobe\` registered alone; zero preset/MCP/skill/browser dependencies added |`,
+    `| 2 | Discover/select with identity normalization & review preview | ${s2} | \`stage-02-discovery-review\`: GitHub normalization, loopback-controlled GitHub source discovery & review plan, full-SHA pin, explicit multi-preset selection, integrity & pre-install code surfaces |`,
+    `| 3 | Reject invalid declarations, tampering, and conflicting constraints | ${s3} | Declaration rejections proven by unit suites: \`test/schema-strict.test.mjs\` (unknown fields, paths, cycles), \`test/composition-provenance.test.mjs\` (alias rebinding, conflicting versions), \`test/discovery-review-plan.test.mjs\` (missing/escaping paths, unpinned git); plus integrated check in \`stage-02-discovery-review\` (tampered digest confirmation refused) |`,
+    `| 4 | Cancellation leaves nothing installed; noninteractive approval bound | ${s4} | \`stage-03-review-cancellation\`: Zero staging records; personal files intact; approval strictly bound to digest in \`stage-04-approved-install-inactive\` |`,
+    `| 5 | Native install inactive until launch; failed staging reported; writer lock refusal | ${s5} | \`stage-04-approved-install-inactive\` (filtered \`[]\` resources); \`stage-05-isolated-launch\` (live competing writer refused); \`test/isolated-pi-launch.test.mjs\` (~349, stale ownership diagnosed and replaced, live never stolen); \`test/owned-revision-removal.test.mjs\` (~183, stale lease diagnosed & blocks removal); \`stage-09-drift-and-failed-install\` (failed install retained with \`rolledBack: false\`) |`,
+    `| 6 | Activation exposes loaded resources; preserves user choices & restrictions | ${s6} | \`stage-05-isolated-launch\`: Settings rewritten with active selections, RPC verifies tool & extension presence |`,
+    `| 7 | Switching presets; soft change in place vs idle full-switch launch plan | ${s7} | \`stage-06-soft-and-full-transition\`: In-place PID preservation for preferences; launch plan for code differences |`,
+    `| 8 | Locks cover configuration, resources, code, baseline; drift refused | ${s8} | \`stage-09-drift-and-failed-install\`: Tampered code diagnosed as \`drifted\` by doctor; subsequent launch refused |`,
+    `| 9 | Follow/strict resume semantics; follow uses approval order | ${s9} | \`stage-07-follow-strict-resume\`: Follow chooses newest approved revision (0.9.0 over 2.0.0); strict pins and refuses |`,
+    `| 10 | History preservation, fork inheritance, tree navigation blocking | ${s10} | \`stage-07-follow-strict-resume\` (conversation restored); \`stage-08-tree-navigation-blocking\` (incompatible branch blocks turns with relaunch plan, transcript unmutated) |`,
+    `| 11 | Removal affects only unreferenced state; release drops retains | ${s11} | \`stage-10-retain-release-guards\` (retain and strict block remove; release drops retain without collateral damage); \`test/owned-revision-removal.test.mjs\` (~183, stale lease blocks removal until cleared); \`stage-11-removal-and-baseline-restoration\` (owned removal) |`,
+    `| 12 | Status, doctor, and explain report honesty without secrets | ${s12} | \`stage-08-tree-navigation-blocking\` & \`stage-09-drift-and-failed-install\`: Status and doctor truthfully reflect runtime blocks and drift |`,
+    `| 13 | pi --wardrobe selector & opt-in forwarding shell wrapper | ${s13} | \`stage-12-selector-wrapper-integration\`: Forwarding wrapper created, recorded real Pi path, removed cleanly |`,
+    `| 14 | Complete process/PTY acceptance with controlled transports | ${s14} | Unified acceptance suite run end-to-end under \`test/integrated-v1-acceptance.test.mjs\` with PTY acceptance under \`test/startup-selector-forwarder.test.mjs\` |`,
     "",
     "## Executed Stages & Observations",
     "",
@@ -284,7 +318,7 @@ function renderIntegratedMarkdown(payload) {
   }
 
   lines.push("## Known Limitations and Boundaries", "");
-  lines.push("- GitHub URL import and discovery were exercised via offline loopback fixtures and `normalizeGithub` logic; local evidence is not described as live public-GitHub network verification.");
+  lines.push("- GitHub URL import and discovery were exercised end-to-end via loopback-controlled Bare Git fixtures (WARDROBE_GITHUB_HOST); local evidence is loopback-controlled and is not described as live public-GitHub network verification.");
   lines.push("- The verified execution baseline is Pi 1.1.0, Node 26.5.0, npm 11.17.0 on macOS arm64 (`darwin arm64`). Other platforms, architectures, and toolchains remain explicitly unverified.");
   lines.push("- Native package installation executes package scripts via Node/npm; Wardrobe is not an arbitrary-code sandbox.");
   lines.push("- Failed installations are retained for diagnostics (`rolledBack: false`); residual files and script effects are reported, not claimed rolled back.");
@@ -298,11 +332,14 @@ function renderIntegratedMarkdown(payload) {
 test("integrated V1 acceptance: complete user journey in one controlled run", async (t) => {
   const h = harness();
 
-  // Hook into evidence recorder to write our enriched markdown report upon completion.
+  // Hook into evidence recorder to write our enriched markdown report only upon successful run completion.
+  let runCompleted = false;
   const originalWrite = h.evidence.write.bind(h.evidence);
   h.evidence.write = () => {
     const paths = originalWrite();
-    writeFileSync(paths.markdown, renderIntegratedMarkdown(h.evidence.payload()));
+    if (runCompleted) {
+      writeFileSync(paths.markdown, renderIntegratedMarkdown(h.evidence.payload()));
+    }
     return paths;
   };
 
@@ -348,11 +385,33 @@ test("integrated V1 acceptance: complete user journey in one controlled run", as
   });
 
   await t.test("2. GitHub normalization, Bare Git and npm discovery, and pre-install code surface review", async () => {
-    // 2a. GitHub normalization
+    // 2a. GitHub normalization and loopback-controlled discovery
     assert.equal(normalizeGithub("owner/repo"), "github:owner/repo");
     assert.equal(normalizeGithub("github.com/owner/repo"), "github:owner/repo");
     assert.equal(normalizeGithub("https://github.com/owner/repo.git#presets/alpha"), "github:owner/repo#presets/alpha");
     assert.equal(normalizeGithub("git@github.com:owner/repo.git"), "github:owner/repo");
+
+    const ghRepo = await h.gitRepo("gh-controlled/preset-source", [
+      {
+        message: "github controlled preset",
+        files: {
+          "preset.json": `${JSON.stringify({
+            schemaVersion: 1,
+            id: "github-controlled",
+            name: "GitHub Controlled Preset",
+            version: "1.0.0",
+            compatibility: { pi: ">=1.1.0 <2.0.0" },
+          })}\n`,
+        },
+      },
+    ]);
+    const ghReviewed = await wardrobe(h, "install github:gh-controlled/preset-source", {
+      extraEnv: { WARDROBE_GITHUB_HOST: `${h.server.origin}/git` },
+    });
+    assert.equal(ghReviewed.ok, true, ghReviewed.text);
+    assert.equal(ghReviewed.state, "awaiting-approval");
+    assert.equal(ghReviewed.plan.source.locator, "github:gh-controlled/preset-source");
+    assert.equal(ghReviewed.plan.source.commit, ghRepo.commits[0]);
 
     // 2b. Bare Git repository with multi-preset declaration and sequential revisions
     const betaPresetContent = `${JSON.stringify({
@@ -462,6 +521,7 @@ test("integrated V1 acceptance: complete user journey in one controlled run", as
 
     h.record("stage-02-discovery-review", {
       githubNormalized: true,
+      githubResolvedLoopback: true,
       multiPresetRequiresSelection: true,
       reviewDigest: plan.digest,
       installsCode: plan.installationSurfaces[0].installsCode,
@@ -941,4 +1001,8 @@ test("integrated V1 acceptance: complete user journey in one controlled run", as
       wrapperCleanlyRemoved: true,
     });
   });
+
+  // Gate report emission on full run completion
+  runCompleted = true;
+  h.evidence.write();
 });

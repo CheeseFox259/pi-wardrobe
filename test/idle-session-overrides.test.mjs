@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
 import { runCommand } from "../packages/wardrobe/src/commands.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, latestRequest, sessionState, useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("idle-session-overrides");
 const MANAGER_DIR = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "packages/wardrobe");
@@ -92,13 +92,6 @@ async function installSource(h, source) {
   assert.equal(confirmed.ok, true, confirmed.text);
   assert.equal(confirmed.state, "available", confirmed.text);
   return confirmed;
-}
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 /**
@@ -231,14 +224,6 @@ function launched(h, revisionId, { args = [], revisionDir } = {}) {
   return { child, send, command, close, kill, waitForCommands, useLocalModel, stderr: () => stderr };
 }
 
-/** What the local provider last received from the session. */
-function latestRequest(revisionDir) {
-  const path = join(revisionDir, "fixture-request.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
-}
-
 /**
  * Wait for the provider to be asked for something.
  *
@@ -254,14 +239,6 @@ async function waitForRequest(revisionDir, timeoutMs = 30_000) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return null;
-}
-
-/** What the running session last reported about itself. */
-function sessionState(revisionDir) {
-  const path = join(revisionDir, "fixture-state.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
 }
 
 /**

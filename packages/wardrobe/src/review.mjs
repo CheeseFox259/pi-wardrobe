@@ -138,10 +138,15 @@ async function resolvePackageSource({ alias, entry, captured, registry, env, fet
   const parsed = parseSource(entry.source, `/packages/${alias}/source`);
 
   if (parsed.kind === "self") {
+    // If captured from git (including github:), resolve to the pinned native git URL@commit
+    const pinnedGit =
+      captured.kind === "git" && captured.url && captured.commit
+        ? `git:${captured.url}@${captured.commit}`
+        : null;
     return {
       alias,
       source: entry.source,
-      resolvesTo: captured.locator,
+      resolvesTo: pinnedGit ?? captured.locator,
       artifact: artifactOfCapture(captured),
       hasInstallScript: captured.hasInstallScript === true,
     };

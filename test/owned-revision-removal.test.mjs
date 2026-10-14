@@ -18,6 +18,7 @@ import { StagingStore } from "../packages/wardrobe/src/staging.mjs";
 import { RetainStore } from "../packages/wardrobe/src/retain.mjs";
 import {
   assertSettingsMatch,
+  launchEnv,
   preferenceSnapshot,
   useHarness,
 } from "./support/harness.mjs";
@@ -35,13 +36,6 @@ async function installManager(h) {
 async function repo(h, name, commits) {
   repos[name] ??= await h.gitRepo(name, commits);
   return repos[name];
-}
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 function withAgentDir(args, h) {

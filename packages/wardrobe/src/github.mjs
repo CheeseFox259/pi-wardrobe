@@ -89,3 +89,44 @@ function splitPath(value, path) {
   }
   return [segments[0], segments[1]];
 }
+
+/**
+ * Test whether a string locator is a GitHub reference.
+ */
+export function isGithubLocator(input) {
+  const raw = String(input ?? "").trim();
+  if (!raw) return false;
+  if (raw.startsWith("github:")) return true;
+  if (/^git@github\.com:/i.test(raw)) return true;
+  if (/^https?:\/\/(?:www\.)?github\.com\//i.test(raw)) return true;
+  if (/^(?:www\.)?github\.com\//i.test(raw)) return true;
+  // Bare "owner/repo" with no other scheme
+  if (!raw.includes(":") && !raw.startsWith(".") && !raw.startsWith("/")) {
+    const withoutFragment = raw.split("#")[0];
+    const segments = withoutFragment.replace(/\.git$/, "").split("/").filter(Boolean);
+    return segments.length === 2 && /^[A-Za-z0-9._-]+$/.test(segments[0]) && /^[A-Za-z0-9._-]+$/.test(segments[1]);
+  }
+  return false;
+}
+
+/**
+ * Construct the clone/fetch Git URL for a GitHub repository.
+ *
+ * Consults `WARDROBE_GITHUB_HOST` as a test seam so tests can remap
+ * GitHub transports to a local loopback Bare Git fixture without hitting live network.
+ *
+ * @param {string} repository "owner/repo"
+ * @param {object} [env] environment variables
+ * @returns {string} full git URL
+ */
+export function githubUrl(repository, env = process.env) {
+  const host = env?.WARDROBE_GITHUB_HOST;
+  if (host) {
+    const trimmed = String(host).replace(/\/+$/, "");
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return `${trimmed}/${repository}.git`;
+    }
+    return `https://${trimmed}/${repository}.git`;
+  }
+  return `https://github.com/${repository}.git`;
+}

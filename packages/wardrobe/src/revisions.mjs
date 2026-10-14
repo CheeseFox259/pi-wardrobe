@@ -130,7 +130,7 @@ export function resolvePresetKey(selector, reports) {
       candidates: distinct.sort(),
     };
   }
-  return { ok: false, reason: `no installed preset matches ${JSON.stringify(wanted)}`, candidates: [] };
+  return { ok: false, reason: `no installed revision matches ${JSON.stringify(wanted)}`, candidates: [] };
 }
 
 function revisionMatches(report, selector) {

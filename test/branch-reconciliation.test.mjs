@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
 import { BindingStore } from "../packages/wardrobe/src/binding.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("branch-reconciliation");
 const MANAGER_DIR = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "packages/wardrobe");
@@ -29,13 +29,6 @@ async function installManager(h) {
 async function repo(h, name, commits) {
   repos[name] ??= await h.gitRepo(name, commits);
   return repos[name];
-}
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 async function wardrobe(h, argument) {

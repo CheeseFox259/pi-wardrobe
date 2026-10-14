@@ -18,7 +18,7 @@ import { planFor } from "../packages/wardrobe/src/review.mjs";
 import { validateDefinition } from "../packages/wardrobe/src/schema.mjs";
 import { discover } from "../packages/wardrobe/src/store.mjs";
 import { normalizeToolSelection } from "../packages/wardrobe/src/reconcile.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, latestRequest, sessionState, useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("minimal-reference");
 const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -58,13 +58,6 @@ async function installManager(h) {
 async function repo(h, name, commits) {
   repos[name] ??= await h.gitRepo(name, commits);
   return repos[name];
-}
-
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 function presetRoot(h, name) {
@@ -182,20 +175,6 @@ function launched(h, revisionId, { revisionDir, args = [] } = {}) {
   };
 
   return { child, send, command, close, kill, waitForCommands, useLocalModel, stderr: () => stderr };
-}
-
-function sessionState(revisionDir) {
-  const path = join(revisionDir, "fixture-state.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
-}
-
-function latestRequest(revisionDir) {
-  const path = join(revisionDir, "fixture-request.jsonl");
-  if (!existsSync(path)) return null;
-  const lines = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
-  return lines.length === 0 ? null : JSON.parse(lines.at(-1));
 }
 
 async function waitForRequest(revisionDir, timeoutMs = 30_000) {
@@ -439,6 +418,77 @@ test("local captured definition reviews, approves, installs, and launches succes
     reasoning: request.reasoning,
     personalStatePreserved: true,
   });
+});
+
+test("local captured definition mutation after review/approval invalidates digest and refuses install", async () => {
+  const h = harness();
+  await installManager(h);
+
+  const sourceDir = presetRoot(h, "local-mutation-check");
+  const targetDir = join(sourceDir, "minimal-coding");
+  mkdirSync(targetDir, { recursive: true });
+  const presetPath = join(targetDir, "preset.json");
+  writeFileSync(presetPath, readFileSync(SHIPPED_PRESET_FILE, "utf8"));
+
+  // 1. Initial review and plan
+  const { presets } = discover([sourceDir]);
+  const discovered = presets.find((entry) => entry.id === "wardrobe/minimal-coding");
+  assert.ok(discovered);
+
+  const capture = {
+    kind: "local",
+    locator: discovered.source,
+    root: discovered.source,
+    treeDigest: null,
+    presets: [discovered],
+  };
+  const plan = await planFor({
+    captured: capture,
+    preset: discovered,
+    workDir: join(h.agentPath("primary"), "wardrobe", "captures"),
+    env: launchEnv(h),
+  });
+
+  const planStore = new PlanStore(h.agentPath("primary"));
+  const approved = planStore.save({
+    ...plan,
+    approved: { digest: plan.digest, at: new Date().toISOString() },
+  });
+
+  // 2. Mutate local preset declaration on disk after review/approval
+  const mutated = JSON.parse(readFileSync(presetPath, "utf8"));
+  mutated.runtime.thinking = "high";
+  writeFileSync(presetPath, JSON.stringify(mutated, null, 2));
+
+  // 3. Re-discovering and planning yields a different digest
+  const rediscovery = discover([sourceDir]);
+  const redisoveredPreset = rediscovery.presets.find((entry) => entry.id === "wardrobe/minimal-coding");
+  assert.notEqual(redisoveredPreset.digest, discovered.digest, "declaration digest was unchanged after local file edit");
+
+  const newPlan = await planFor({
+    captured: { ...capture, presets: [redisoveredPreset] },
+    preset: redisoveredPreset,
+    workDir: join(h.agentPath("primary"), "wardrobe", "captures"),
+    env: launchEnv(h),
+  });
+  assert.notEqual(newPlan.digest, plan.digest, "plan digest was unchanged after local declaration mutation");
+
+  // 4. Attempting to install with tampered plan or outdated digest is refused
+  const tamperedPlan = {
+    ...approved,
+    runtime: { ...approved.runtime, thinking: { ...approved.runtime.thinking, value: "high" } },
+  };
+  await assert.rejects(
+    () => installApprovedPlan({
+      plan: tamperedPlan,
+      agentDir: h.agentPath("primary"),
+      env: launchEnv(h),
+    }),
+    (error) => {
+      assert.match(error.message, /approved plan no longer hashes to its digest/);
+      return true;
+    }
+  );
 });
 
 test("pinned Git fixture import reviews, installs, and launches with effective runtime observations", async (t) => {

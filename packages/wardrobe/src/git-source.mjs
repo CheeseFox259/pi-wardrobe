@@ -14,6 +14,52 @@ import { git } from "./proc.mjs";
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
 /**
+ * Query a remote git repository using `git ls-remote` and return the 40-character commit SHA.
+ *
+ * @param {string} url git repository URL
+ * @param {string} [ref="HEAD"] ref name or HEAD
+ * @param {object} [env={}] child environment
+ * @returns {Promise<string>} 40-character commit SHA
+ */
+export async function resolveGitRef(url, ref = "HEAD", env = {}) {
+  let output;
+  try {
+    output = await git(["ls-remote", "-q", url, ref], { env });
+  } catch (error) {
+    throw WardrobeError.from("cannot query remote git repository", [
+      new WardrobeDiagnostic({
+        path: "/source",
+        reason: error instanceof Error ? error.message : String(error),
+        hint: `ensure git can access ${url}`,
+      }),
+    ]);
+  }
+  const lines = output.trim().split("\n").filter(Boolean);
+  if (lines.length === 0) {
+    throw WardrobeError.from("cannot resolve git reference", [
+      new WardrobeDiagnostic({
+        path: "/source",
+        reason: `remote ${url} has no reference matching ${JSON.stringify(ref)}`,
+        hint: "check repository name or ref",
+      }),
+    ]);
+  }
+  // If an annotated tag is matched, prefer the peeled tag ^{} pointing to the commit
+  const peeled = lines.find((line) => line.includes("^{}"));
+  const targetLine = peeled ?? lines[0];
+  const [sha] = targetLine.split(/\s+/);
+  if (!FULL_SHA.test(sha)) {
+    throw WardrobeError.from("resolved git ref is not a full commit SHA", [
+      new WardrobeDiagnostic({
+        path: "/source",
+        reason: `expected 40-character SHA, found ${JSON.stringify(sha)}`,
+      }),
+    ]);
+  }
+  return sha;
+}
+
+/**
  * Clone `url` at `ref` into `root` and return what was captured.
  *
  * @returns {{root: string, url: string, commit: string, presets: {path: string, digest: string}[]}}

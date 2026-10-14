@@ -239,7 +239,13 @@ function flagValue(flags, name) {
   return typeof value === "string" ? value : null;
 }
 
-/** `--flag value`, `--flag`, and `--` to hand the rest to the child. */
+/**
+ * `--flag value`, `--flag`, and `--` to hand the rest to the child.
+ *
+ * WHY: Differs deliberately from commands.mjs parseArgs: CLI requires `--`
+ * separator handling to pass remaining arguments through to the child Pi process
+ * without parsing them as Wardrobe flags.
+ */
 function parseArgs(tokens) {
   const positional = [];
   const flags = new Map();

@@ -111,7 +111,7 @@ A preset is defined by a `preset.json` file conforming to `schemaVersion: 1`:
   "author": "Author Name",
   "compatibility": {
     "pi": ">=1.1.0 <2.0.0",
-    "platforms": ["darwin arm64"]
+    "platforms": ["darwin-arm64"]
   },
   "extends": {
     "source": "git:https://example.com/base.git@0123456789abcdef0123456789abcdef01234567",
@@ -166,10 +166,12 @@ A preset identity consists of its **canonical source repository plus declared ID
 ```
 git:https://github.com/org/repo.git@<commit-sha>#<preset-id>
 npm:@scope/package@<version>#<preset-id>
+github:<owner>/<repo>[#<presetPath>]
 ```
 - Equal declared IDs from distinct sources (e.g. two separate repositories declaring `id: "coding"`) are **not interchangeable**.
 - Short IDs (`coding`) may be used only when unambiguous across all discovered sources.
 - When an ID is declared by multiple sources, commands refuse and list all source-qualified candidates.
+- **GitHub Source Resolution:** GitHub references (`github:<owner>/<repo>`) resolve their commit SHA from the repository's `HEAD` via `git ls-remote`. In testing and controlled environments, the `WARDROBE_GITHUB_HOST` environment variable acts as a test seam to route Git operations to a local loopback Bare Git fixture without hitting external networks.
 
 ---
 
@@ -308,4 +310,5 @@ wardrobe integrate disable --dir ~/.local/bin
 2. **No Automatic Rollback:** Failed package installations are retained for diagnostics (`rolledBack: false`) with residual files listed. Script side effects outside owned staging (global files, external processes) are **not claimed reversed**.
 3. **No Detached Process Reclamation:** Detached descendant processes spawned by package scripts are not guaranteed to be killed on failure.
 4. **No Unconditional Transitive Rebuild:** Locks do not guarantee identical dependency reconstruction across different networks or registry states.
-5. **Platform Limits:** Only **macOS arm64** (`darwin arm64`) on the exact baseline (Pi 1.1.0, Node 26.5.0, npm 11.17.0) is verified. All other platforms and versions are explicitly unverified.
+5. **Loopback-Controlled GitHub Evidence:** GitHub URL import is tested and verified locally using loopback Bare Git fixtures via the `WARDROBE_GITHUB_HOST` test seam. Local test runs and verification evidence are loopback-controlled and do not hit or validate live public GitHub network infrastructure.
+6. **Platform Limits:** Only **macOS arm64** (`darwin-arm64`) on the exact baseline (Pi 1.1.0, Node 26.5.0, npm 11.17.0) is verified. All other platforms and versions are explicitly unverified.

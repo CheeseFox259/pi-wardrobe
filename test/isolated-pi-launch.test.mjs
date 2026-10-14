@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
 import { externalResourceRoots, managerExtensionPath } from "../packages/wardrobe/src/launch.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, useHarness } from "./support/harness.mjs";
 
 const harness = useHarness("isolated-pi-launch");
 const MANAGER_DIR = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "packages/wardrobe");
@@ -38,14 +38,6 @@ async function wardrobe(h, argument, { extraEnv } = {}) {
   } finally {
     await session.close();
   }
-}
-
-/** The environment every launched process gets: sandboxed, and revision-scoped. */
-function launchEnv(h, extra = {}) {
-  return h.sandbox.childEnv({
-    agentDir: h.agentPath("primary"),
-    extra: { WARDROBE_PI_CLI: h.runtime.cliPath, ...extra },
-  });
 }
 
 /** The agent-directory argument the launcher is pointed at, as a user would. */

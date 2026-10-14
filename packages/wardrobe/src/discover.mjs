@@ -8,8 +8,8 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
-import { captureGitSource, treeDigest } from "./git-source.mjs";
-import { normalizeGithub } from "./github.mjs";
+import { captureGitSource, resolveGitRef, treeDigest } from "./git-source.mjs";
+import { githubUrl, isGithubLocator, normalizeGithub } from "./github.mjs";
 import { parseSource } from "./identity.mjs";
 import { captureNpmSource } from "./npm-import.mjs";
 import { validateDefinition } from "./schema.mjs";
@@ -34,16 +34,23 @@ export async function captureSource(argument, { workDir, env, registry, fetchImp
     ]);
   }
 
-  if (locator.startsWith("github:")) {
+  if (locator.startsWith("github:") || isGithubLocator(locator)) {
     const normalized = normalizeGithub(locator);
-    const [, repository, embeddedPath] = normalized.split("#");
+    const withoutScheme = normalized.slice("github:".length);
+    const hashIndex = withoutScheme.indexOf("#");
+    const repository = hashIndex >= 0 ? withoutScheme.slice(0, hashIndex) : withoutScheme;
+    const embeddedPath = hashIndex >= 0 ? withoutScheme.slice(hashIndex + 1) : null;
+    const effectivePresetPath = presetPath ?? embeddedPath;
+    const url = githubUrl(repository, env);
+    // Resolve commit SHA from remote Git HEAD rather than guessing from locator fragment
+    const commit = await resolveGitRef(url, "HEAD", env);
     return captureGit({
-      url: `https://github.com/${repository}.git`,
-      ref: embeddedPath ?? null,
-      presetPath,
+      url,
+      ref: commit,
+      presetPath: effectivePresetPath,
       workDir,
       env,
-      identity: normalized,
+      identity: `github:${repository}${effectivePresetPath ? `#${effectivePresetPath}` : ""}`,
     });
   }
 
