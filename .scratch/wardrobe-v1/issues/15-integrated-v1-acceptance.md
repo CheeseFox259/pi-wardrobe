@@ -85,3 +85,33 @@ spec was not amended.
 Not verified and said so: live public-GitHub transport (loopback only),
 platforms beyond macOS arm64, bit-identical frozen transitive rebuilds,
 sandboxing of install scripts, reclamation of detached processes.
+
+## Post-delivery whole-range review (external, committed mode, merge-base 3c17a1ec → fae6c0b)
+
+An independent two-axis review of the whole V1 range (128 files) ran after
+ticket 15. Findings and their resolution (fix commit 175d8ed, 176/176 tests):
+
+- **`github:` import could not execute at all** — discovery decomposed the
+  normalized identity string instead of the locator, so every github: source
+  threw before resolution, and no test had ever driven one. Fixed: locator
+  decomposition, SHA from `git ls-remote` resolution, a documented
+  `WARDROBE_GITHUB_HOST` loopback seam, and end-to-end tests through discovery
+  → review → install. Docs and evidence state the loopback boundary.
+- **The evidence matrix's Status column was a hardcoded "Verified"** and the
+  report was written unconditionally mid-run. Now derived from run records
+  (missing stage → Not Run, failure → Failed) and emitted only on completion;
+  regenerated from a real passing run.
+- **`approve()` carried an unused `requireDisplayed` parameter** that bypassed
+  digest verification, contradicting the module's own invariant. Deleted; the
+  digest check is unconditional.
+- Doc platform format (`darwin-arm64`), "installed preset" → "installed
+  revision" per CONTEXT.md, and `launchEnv`/`sessionState`/`latestRequest`
+  hoisted into test/support/harness.mjs from 8 copies.
+- **Local snapshot concern investigated and disproved with a test**: a local
+  preset's definition is digest-covered by the plan; mutating it after
+  approval invalidates the digest and refuses install.
+
+Fixes verified by a read-only reviewer against current source; one doc
+numbering typo found and fixed. Judgement calls accepted as-is: commands.mjs
+monolith (divergent change), deliberate parseArgs divergence between CLI and
+in-session dispatch (now documented with WHY comments).
