@@ -189,7 +189,7 @@ function createRecordingStub(dir, name = "pi-stub.mjs", exitCode = 0) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "package.json"),
-    JSON.stringify({ name: "@earendil-works/pi-coding-agent", version: "1.1.0" }) + "\n"
+    JSON.stringify({ name: "@earendil-works/pi-coding-agent", version: harness().runtime.version }) + "\n"
   );
   const stubPath = join(dir, name);
   const logPath = join(dir, `${name}.log`);

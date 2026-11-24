@@ -1,6 +1,6 @@
 # Minimal Coding
 
-The native-only reference preset for Pi CLI agent v1.1.0.
+The native-only reference preset for Pi CLI agent 1.1.0–1.3.0. Version 1.0.1 extends the original 1.1 compatibility declaration after native 1.3 runtime verification; resource selection and preferences retain the V1 specification.
 
 `Minimal Coding` provides a baseline coding configuration using Pi's built-in
 tools (`read`, `edit`, `write`, `bash`), a default `medium` thinking level, and

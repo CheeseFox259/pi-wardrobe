@@ -15,7 +15,6 @@ import { oneLine } from "./doctor.mjs";
 import {
   executableDifference,
   idleRefusal,
-  planModel,
   planPersona,
   planThinking,
   planTools,
@@ -131,6 +130,7 @@ export async function runCommand(input, { env = process.env, session = null } = 
   }
 
   try {
+    if ([...flags.keys()].some(key => /^(model|provider)(?:=|$)/.test(key))) throw WardrobeError.from("model selection belongs to Pi", [], "use Pi /model or pass --model to the Pi process after --");
     const dir = agentDir(env);
     if (command === "install") {
       // Awaited inside the try: a rejected promise must still become a
@@ -256,11 +256,10 @@ async function composition(preset, flags, { dir, env }) {
 
 /**
  * Choices a preset may not override: CLI exclusions, the user's authorization
- * boundary, and an explicit user/CLI model choice.
+ * boundary.
  */
 function restrictionsOf(flags) {
   const disabledTools = flags.get("disable-tool");
-  const model = flags.get("model");
   return {
     disabledTools:
       typeof disabledTools === "string"
@@ -269,7 +268,6 @@ function restrictionsOf(flags) {
             .map((name) => name.trim())
             .filter(Boolean)
         : [],
-    model: typeof model === "string" ? model : null,
   };
 }
 
@@ -791,17 +789,6 @@ async function softUse({ agentDir, env, session, target }) {
     current: session.activeTools(),
     available: session.availableTools(),
   });
-  const currentModel = session.model();
-  const model = planModel({
-    preference: target.plan.runtime?.model ?? null,
-    effective: currentModel ? `${currentModel.provider}/${currentModel.id}` : null,
-    // A model this session carries that the revision it runs does not declare
-    // is the user's own choice, made in this process.
-    chosenHere:
-      currentModel && declaredModelOf(currentPlan) !== `${currentModel.provider}/${currentModel.id}`
-        ? `${currentModel.provider}/${currentModel.id}`
-        : null,
-  });
   const thinking = planThinking({
     preference: target.plan.runtime?.thinking ?? null,
     effective: session.thinkingLevel(),
@@ -813,11 +800,10 @@ async function softUse({ agentDir, env, session, target }) {
     // The declared selection, not the one that took: a name this runtime could
     // not provide has to appear as not applied rather than disappear.
     tools: tools.intended,
-    model: model.applies ? model.requested : model.effective,
     thinking: thinking.applies ? thinking.requested : thinking.effective,
     persona: persona.resulting,
   };
-  const diagnostics = preparedToDiagnostics({ tools, model, thinking });
+  const diagnostics = preparedToDiagnostics({ tools, thinking });
 
   if (refusal) {
     return failure(
@@ -830,31 +816,6 @@ async function softUse({ agentDir, env, session, target }) {
   }
 
   if (tools.changed) session.setActiveTools(tools.resulting);
-  if (model.applies) {
-    const at = model.requested.indexOf("/");
-    const provider = model.requested.slice(0, at);
-    const id = model.requested.slice(at + 1);
-    const resolved = session.resolveModel(provider, id);
-    if (!resolved.summary) {
-      diagnostics.push({
-        path: "/runtime/model",
-        reason: `no model named ${model.requested} exists here`,
-        hint: "a preference cannot introduce a model that is not available; your model is unchanged",
-      });
-    } else if (resolved.hasAuth === false) {
-      diagnostics.push({
-        path: "/runtime/model",
-        reason: `${model.requested} is available but has no credentials here`,
-        hint: "your model is unchanged; this manager never introduces authentication",
-      });
-    } else if (!(await session.setModel(resolved.model))) {
-      diagnostics.push({
-        path: "/runtime/model",
-        reason: `Pi refused ${model.requested}`,
-        hint: "your model is unchanged",
-      });
-    }
-  }
   if (thinking.applies) session.setThinkingLevel(thinking.requested);
 
   const personaState = [...persona.resulting];
@@ -870,7 +831,6 @@ async function softUse({ agentDir, env, session, target }) {
     revision: target.report.revision,
     appliedAt: new Date().toISOString(),
     tools: session.activeTools(),
-    model: session.model(),
     thinking: session.thinkingLevel(),
     persona: personaState,
   });
@@ -960,14 +920,8 @@ async function retain(command, positional, flags, { dir, env }) {
   return success(command, result);
 }
 
-/** The model the revision this session is running declares, if any. */
-function declaredModelOf(plan) {
-  const declared = plan?.runtime?.model?.value;
-  return typeof declared === "string" ? declared : null;
-}
-
 /** Turn a plan's refusals into reportable diagnostics. */
-function preparedToDiagnostics({ tools, model, thinking }) {
+function preparedToDiagnostics({ tools, thinking }) {
   const out = [];
   for (const entry of tools.unmet) {
     out.push({
@@ -975,9 +929,6 @@ function preparedToDiagnostics({ tools, model, thinking }) {
       reason: `tool ${entry.tool} is wanted but ${entry.reason}`,
       hint: "the rest of the selection is applied; this name is not a problem anything here can fix",
     });
-  }
-  if (model.requested && !model.applies) {
-    out.push({ path: "/runtime/model", reason: model.reason, hint: null });
   }
   if (thinking.reason) {
     out.push({ path: "/runtime/thinking", reason: thinking.reason, hint: null });
@@ -1078,7 +1029,7 @@ function composedFields(composed, layers) {
   }
 
   out.push({ path: "/runtime", kind: "preference", origin, applied: false, container: true });
-  const { tools, thinking, model } = composed.runtime;
+  const { tools, thinking } = composed.runtime;
   tools.enabled.forEach((entry, index) => {
     out.push(field(`/runtime/tools/enable/${index}`, entry.tool, "preference", layerOrigin(entry)));
   });
@@ -1090,15 +1041,6 @@ function composedFields(composed, layers) {
   });
   if (thinking) {
     out.push(field("/runtime/thinking", thinking.value, "preference", layerOrigin(thinking)));
-  }
-  if (model.value !== null) {
-    out.push({
-      ...field("/runtime/model", model.value, "preference", {
-        layer: model.layer ?? model.winner,
-        identity: model.identity ?? null,
-      }),
-      reason: model.reason ?? null,
-    });
   }
 
   out.push({ path: "/persona", kind: "content", origin, applied: true, container: true });
@@ -1166,16 +1108,9 @@ function isContainer(value) {
  * than as something `use` would do, and an unmet preference keeps its reason.
  */
 function proposals(composed) {
-  const { tools, thinking, model } = composed.runtime;
+  const { tools, thinking } = composed.runtime;
   const out = [];
   if (thinking) out.push(`/wardrobe use would propose thinking level ${thinking.value} (${thinking.layer})`);
-  if (model.value !== null) {
-    out.push(
-      model.winner === "user"
-        ? `/wardrobe use would propose model ${model.value}, but an explicit user or CLI choice wins`
-        : `/wardrobe use would propose model ${model.value}`
-    );
-  }
   if (tools.enabled.length > 0) {
     out.push(
       `/wardrobe use would propose enabling tools: ${tools.enabled.map((entry) => entry.tool).join(", ")}`

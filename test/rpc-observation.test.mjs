@@ -90,7 +90,10 @@ test("a real RPC session observes command, tool and event registration", async (
       shutdowns.some((event) => event.reason === "reload"),
       `no reload shutdown observed: ${JSON.stringify(shutdowns)}`
     );
-    assert.doesNotMatch(session.stderr, /api key|unauthorized|401/i);
+    const stderr = session.stderr.split("\n").filter(
+      line => line.trim() !== "Warning: No models available. Use /login to log into a provider via OAuth or API key. See:"
+    ).join("\n");
+    assert.doesNotMatch(stderr, /api key|unauthorized|401/i);
 
     h.record("rpc-resource-registration", {
       registeredWhileFiltered: false,

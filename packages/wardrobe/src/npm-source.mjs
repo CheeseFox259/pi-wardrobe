@@ -66,5 +66,6 @@ export async function resolveNpmPackage({ name, version, registry, fetchImpl = f
     shasum: entry.dist.shasum ?? null,
     hasInstallScript: entry.hasInstallScript === true,
     scripts: entry.scripts ?? {},
+    repository: entry.repository ?? null,
   };
 }

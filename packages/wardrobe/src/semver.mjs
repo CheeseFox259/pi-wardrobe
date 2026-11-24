@@ -164,3 +164,19 @@ function compare(a, b) {
 export function isStringArray(value) {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
+
+/** Pi presets declare a minimum runtime. Legacy exact/caret/tilde/wildcard
+ * shorthand also denotes that floor; explicit comparator constraints retain
+ * their meaning. A higher runtime still loads resources through native Pi. */
+export function supportsPi(requirement, version) {
+  if (!isCompatibilityRange(requirement)) return null;
+  const value=requirement.trim();
+  if(value==='*')return satisfies('*',version);
+  if(!value.includes(' ')&&!/^[<>=]/.test(value)){
+    const shorthand=value.replace(/^[\^~]/,'');
+    const bound=parseBound(shorthand);
+    if(!bound)return null;
+    return satisfies(`>=${bound.lower.major}.${bound.lower.minor}.${bound.lower.patch}`,version);
+  }
+  return satisfies(value,version);
+}

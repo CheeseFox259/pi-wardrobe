@@ -1,0 +1,129 @@
+{
+  "pi": {
+    "image": "https://assets.aliou.me/github/aliou/pi-guardrails/banner.png",
+    "video": "https://assets.aliou.me/github/aliou/pi-guardrails/demo.mp4",
+    "extensions": [
+      "./extensions/path-access/index.ts",
+      "./extensions/guardrails/index.ts",
+      "./extensions/permission-gate/index.ts",
+      "./extensions/herdr/index.ts"
+    ]
+  },
+  "_id": "@aliou/pi-guardrails@0.19.0",
+  "bugs": {
+    "url": "https://github.com/aliou/pi-guardrails/issues"
+  },
+  "dist": {
+    "shasum": "dd8bb39deaa7c0c551575fe48bf17d207965cb6c",
+    "tarball": "https://registry.npmjs.org/@aliou/pi-guardrails/-/pi-guardrails-0.19.0.tgz",
+    "integrity": "sha512-gK6pbTewvAH6vrq+quPN3DUFFQfQD783NcYgRqHUZphJtEAtyT01usa6NB+9O5asdOQybr6v6Ib5HbC1Hpko8g==",
+    "fileCount": 67,
+    "unpackedSize": 262613,
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@aliou%2fpi-guardrails@0.19.0",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "signatures": [
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIGqsSLVrbmaumZ3sREF/6FV9hPfWINyRoCskS8k7gaStAiEAivmoKWubO9H+g2IcD5r3jwhvdWmLxqLqxih9vV52cmQ="
+      }
+    ]
+  },
+  "name": "@aliou/pi-guardrails",
+  "type": "module",
+  "gitHead": "4eeb71c1c317520d11512c153b55a1a1e495ad89",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "lint": "biome check",
+    "test": "vitest run",
+    "format": "biome check --write",
+    "prepare": "[ -d .git ] && husky || true",
+    "release": "pnpm changeset publish",
+    "version": "changeset version",
+    "changeset": "changeset",
+    "typecheck": "tsc --noEmit",
+    "gen:schema": "pi-settings-schema -p src/shared/config/types.ts -t GuardrailsConfig -o schema.json",
+    "test:watch": "vitest",
+    "check:schema": "pi-settings-schema -p src/shared/config/types.ts -t GuardrailsConfig -o schema.json --check",
+    "check:lockfile": "pnpm install --frozen-lockfile --ignore-scripts"
+  },
+  "version": "0.19.0",
+  "_npmUser": {
+    "name": "GitHub Actions",
+    "email": "npm-oidc-no-reply@github.com",
+    "trustedPublisher": {
+      "id": "github",
+      "oidcConfigId": "oidc:e496a3fa-ce98-4470-996d-8e0b5343bea1"
+    },
+    "approver": {
+      "name": "aliou",
+      "email": "code+npm@general-dexterity.com"
+    }
+  },
+  "homepage": "https://github.com/aliou/pi-guardrails#readme",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "guardrails",
+    "security"
+  ],
+  "repository": {
+    "url": "git+https://github.com/aliou/pi-guardrails.git",
+    "type": "git"
+  },
+  "_npmVersion": "12.1.0",
+  "description": "![banner](https://assets.aliou.me/github/aliou/pi-guardrails/banner.png)",
+  "directories": {},
+  "maintainers": [
+    {
+      "name": "aliou",
+      "email": "code+npm@general-dexterity.com"
+    }
+  ],
+  "_nodeVersion": "24.21.0",
+  "dependencies": {
+    "@aliou/sh": "^0.3.3",
+    "@aliou/pi-utils-settings": "^0.19.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@10.26.1",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "memfs": "^4.57.2",
+    "vitest": "^4.1.4",
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.10",
+    "@biomejs/biome": "^2.4.15",
+    "@changesets/cli": "^2.27.11",
+    "@sinclair/typebox": "^0.34.48",
+    "@aliou/biome-plugins": "^0.8.1",
+    "@golevelup/ts-vitest": "^4.0.0",
+    "@earendil-works/pi-tui": "0.79.6",
+    "ts-json-schema-generator": "^2.9.0",
+    "@earendil-works/pi-coding-agent": "0.79.6"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-tui": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "_npmOperationalInternal": {
+    "host": "s3://npm-registry-packages-npm-production",
+    "tmp": "tmp/pi-guardrails_0.19.0_1790433835623_0.03540397082480706"
+  },
+  "_hasShrinkwrap": false
+}

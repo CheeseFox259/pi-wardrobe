@@ -1,0 +1,157 @@
+# SoL-Pi in Perfect Pi
+
+The reviewed runtime is Pi 1.3.0. `vendor/sol-pi` merges the local fork `93fd67a833da1b6236cf2582f02f7a6454d6d941`, upstream base `e1a586af0ad8956f42ae5b26bba20e48fbf30e00` and official upstream `219568034fa54ed121ede80961655e33dfb9d0e3`. `source.json` records input refs and merged file hashes. The native adapter loads this source; the original package entrypoint stays disabled. Pi core and native package installations are unchanged.
+
+The update preserves the provider cache during observation projection, leaves nested codemode results structured, avoids reducing results absent from the transcript, reads effective native compaction settings, excludes cache-warming replays from request counts and resumes the parent task after a failed boundary compaction. Existing local progress summaries, horizon reset and conservative savings bounds remain.
+
+### Upstream Fixes in the Patched Fork
+
+The upstream `NVlabs/SoL-Pi` OCC implementation suffered from three known failure modes that are resolved in this fork:
+
+1. **Stale Request Horizon (Over-Compaction Loop):** `state.completedBoundaryRequestCounts` accumulated intervals across compactions, inflating future request predictions in late phases and causing repeated back-to-back compactions on already-small contexts. Fixed: `recordCompaction` now resets the request count interval history.
+2. **`pendingProgress` Loss in Summaries:** While `update_plan` collected detailed progress summaries (files changed, decisions, verifications), the compaction runner ignored them and sent a generic static string. Fixed: `buildCompactionInstructions` now formats the collected step progress and embeds it directly into the summarizer prompt.
+3. **Removable Prefix Overestimation:** `estimateNativeCompactionTokens` computed cut points without bounding them against actual provider-visible projected tokens, causing false economic compaction triggers on tiny sessions. Fixed: the removable prefix estimate is strictly bounded by visible projected tokens minus `keepRecentTokens`, and a minimum 1,000-token net savings threshold is enforced.
+
+## Current Profile
+
+The managed source is `global/sol-pi.json`, synchronized to `~/.pi/agent/sol-pi.json`. System runtime policy is owned by `manifest.json:solPi` (single source of truth), ensuring that `sol-pi.json` cannot select an unauthorized or unbudgeted route.
+
+| Feature | Default | Integration |
+| --- | --- | --- |
+| Action Fusion | Enabled | edit/write accept optional `then_run`; commands execute through Pi's guarded nested bash pipeline |
+| ObservationPack | Enabled | Large successful text results become handles after two full sends; `obs_recall` returns exact pages |
+| Evidence-Preserving Reducer | Enabled with **session consent** | Authorization is scoped to session ID and approved route. Only eligible diagnostic reductions prompt; Allow/Deny survives reload and same-session resume, Escape/timeouts remain undecided, and fork/new sessions require fresh consent. Concurrent requests share one cancellable selector. Requests are reserved before dispatch, including failed requests, with a 20-request session limit |
+| Online Context Compact | Disabled | Project opt-in via `sol-pi.json`; when enabled, uses upstream SoL-Pi's economic model with `update_plan` step boundaries. Workflow-Aware Compaction (below) describes the preferred architecture for phase-boundary triggers when Matt Pocock skills are active |
+
+Run `/sol-pi` to see the effective configuration path, feature flags, pinned source, and approved reducer route.
+Run `node doctor.mjs` to inspect runtime/package state and contract compatibility; native model availability remains owned by Pi.
+Run `node scripts/check-sol-pi-contract.mjs` to check the required modules and exported helper types against the maintained source. This is a loading/export check, not verification of every signature or runtime behavior. Setup, doctor, checker and observe share the portable runtime resolver, including `PI_GLOBAL_NODE_MODULES`.
+Run `node observe.mjs <session.jsonl> --summary` to generate the SoL efficiency and token avoidance report.
+
+## Guarded Fusion
+
+Use `then_run` only for bounded validation commands. Dev servers and watchers remain owned by the `process` capability.
+
+The nested bash command passes through `tool_call`, argument validation, CLI restrictions, and guardrails. A blocked or nonzero command is reported as `[then_run:failed]` with an error tool result. The mutation is retained, not rolled back. Mutation failure prevents command execution.
+
+This adapter fixes two incompatibilities in the original SoL-Pi implementation on Pi 1.0.2: direct invocation of the bash definition bypasses guardrail hooks, and returned `isError` results were incorrectly labeled successful.
+
+## Evidence and Reducer Policy
+
+The user authorized default remote reduction of eligible diagnostic logs. This is not permission to send credentials, secrets, or arbitrary files. SoL-Pi's likely-secret detector is a precaution, not a complete data-loss prevention system. Disable reduction for sensitive repositories.
+
+The reducer uses Pi's current model at each tool result. A native model change requires consent for the new route. Pi owns provider configuration and credentials; legacy project reducer model fields are ignored. If the model is unavailable, reduction fails, a receipt is invalid, or the request budget is exhausted, the original log is retained.
+
+The adapter permits at most 20 reducer requests per session, persisted across resume and reload. It records an attempt before dispatch; exceptions and cancellations after dispatch still consume a slot. Explicit Allow and Deny decisions include session ID and approved route; inherited fork entries are not authorization. The palette persists the same decision. Legacy grants from an ancestor or another route cannot be reused. The source length, output token cap, and network timeout are inherited from the pinned upstream implementation. Reducer usage is included even when a response is rejected and the log falls back. Nested fused validation is reduced once, not again at its parent edit/write result.
+
+Receipts verify quotations against archived content. They do not prove diagnostic completeness; diagnosis and final pass/fail decisions still belong to the primary agent.
+
+Observation archives are kept under the session's `sol-pi/<session-id>/` directory. Even `--no-session` can create retained temporary archives. No automatic cleanup is introduced.
+
+## Project Configuration
+
+A trusted project's `.pi/sol-pi.json` replaces the global file; values are not merged. Include every feature you want to retain. For a sensitive project:
+
+```json
+{
+  "version": 1,
+  "actionFusion": true,
+  "observationPack": true,
+  "evidencePreservingReducer": false,
+  "onlineContextCompact": false,
+  "cacheWriteReadRatio": 12.5
+}
+```
+
+To try online compaction in a trusted project, set `onlineContextCompact` to true. The ratio is a fixed economic-policy input, not a price guarantee. Keep it aligned with the provider's billing conditions before interpreting savings. OCC reads native effective `keepRecentTokens` and `reserveTokens`, including per-model overrides; the local phase gate uses the same keep-recent setting.
+
+`update_plan` is session-local execution progress; it is not the issue tracker and does not change triage roles, claims, or verified ticket completion. Keep step IDs stable and register unfinished steps before completing them. Use it during execution, not to force compaction during unresolved grilling or spec/ticket authoring.
+
+When OCC is enabled, `sol_phase` records explicit boundaries (`begin`, `complete`, `clear`, `status`); the equivalent user command is `/sol-phase`. Example: `/sol-phase begin to-spec feature-name`, then `/sol-phase complete` only after deliverables and reasoning are finished. Reading a recognized skill or invoking its slash command begins an in-progress phase. Phase state survives same-session resume/reload, but not a fork. Before unrelated work, clear or begin a new phase. No active or completed phase means OCC stays suppressed; native capacity and manual compaction remain available.
+
+Artifact gates require actual files for the selected feature, not merely a `.scratch` directory or another feature's old spec. The `implement` gate checks tracked and untracked Git changes. Untrusted projects cannot override the managed phase contract; invalid trusted overrides fail closed. Explicit completion attests that primary reasoning is no longer needed; the runtime does not prove semantic independence. It enforces a minimum 2,000-token estimated net reduction in addition to the fork's economic model.
+
+## Workflow-Aware Compaction (Runtime-Enforced Contract)
+
+The table and gates below are actively enforced by `global/extensions/sol-pi.ts` consuming the machine-readable contract [`skills/ask-matt/phase-contract.json`](../skills/ask-matt/phase-contract.json).
+
+- **Proactive / Economic Compaction (OCC)**: Requires an explicitly completed eligible phase, verified durability and at least 2,000 estimated net tokens saved before upstream economic evaluation. A tool turn is not itself a workflow-completion boundary. Missing/invalid contract, unknown phase, and in-progress reasoning fail closed.
+- **Context Capacity Compactions (`threshold` and `overflow`)**: Normal, necessary compactions triggered when context limits are reached. They execute directly and silently without veto, warning, or user interruption.
+- **Manual `/compact`**: Commands from the user or the Ctrl+Shift+P palette execute immediately under user authority.
+
+Perfect Pi adopts a **Workflow-Aware Compaction** model that unites Matt Pocock's phase structure with SoL-Pi's economic cost model:
+
+$$\text{Compaction} = \text{SafePhaseBoundary (Matt Skill)} \land \text{EconomicBenefit (SoL Cost Model)}$$
+
+$$\text{Ticket Execution} = \text{Fresh Context (Ticket + Spec + Repo Rehydration)}$$
+
+### Phase Boundary Policy Matrix
+
+| Workflow / Skill | Mid-Workflow Compaction | Completion Boundary | Runtime Behavior |
+|---|---|---|---|
+| `grill-me` / `grill-with-docs` | **Forbidden** | Optional | Preserve continuous reasoning across exploring and stress-testing |
+| `to-spec` | **Forbidden** | Eligible | Conversation rationale compiled into persistent `SPEC.md` anchor (`CHECKPOINT_COMPACT`) |
+| `to-tickets` | **Forbidden** | **Strong Boundary** | Spec decomposed into vertical slices; context disposable (`RESET_ELIGIBLE`) |
+| `implement` | Inside ticket: cautious | **Hard Boundary** | Fresh context per ticket (`FRESH_CONTEXT`); rehydrate from ticket + spec + git commit |
+| `tdd` | Red-Green: **Forbidden** | Post-refactor | Keep failing test assumptions, hypotheses, and diagnostic traces intact |
+| `diagnosing-bugs` | Cautious | Checkpoint | Forbid until reproduction is verified; checkpoint once root-cause is isolated |
+| `code-review` | Within pass: **Forbidden** | Complete | Review pass stays intact; markdown report persists as durable artifact |
+
+### Three Context Operations
+
+1. **`SOFT_COMPACT`**: Retain the current session and compact conversational history. Appropriate during long exploratory grilling or debugging sessions when context exceeds token thresholds.
+2. **`CHECKPOINT_COMPACT`**: The phase produced a durable artifact (`SPEC.md`, `tickets.md`, `research.md`). The artifact replaces loose chat rationale as the new context anchor.
+3. **`FRESH_CONTEXT`**: Recommended for `/implement`. Do not compact or summarize past implementation chat. Start a fresh context with the ticket, spec reference, blocking tickets, and latest git commits.
+
+### Three Compaction Gates
+
+Before triggering any compaction, three gates must be satisfied:
+
+- **Gate A (Durability Gate)**: Have the phase's deliverables been written to disk and verified? (Spec written, tickets recorded, commit created). If not, **fail-closed** (keep context).
+- **Gate B (Semantic Dependency Gate)**: Does the next step require raw conversational history, or can it operate strictly from the durable artifact? If raw history is required, compaction is withheld.
+- **Gate C (Economic Gate)**: Does SoL-Pi's cost model indicate that $\text{ExpectedTokensSaved} > \text{CacheRewriteCost}$? If rewriting cache is uneconomic, keep context intact.
+
+### Externalize First, Summarize Second
+
+Context is the active working set; it is not long-term memory. Summaries generated by LLMs are lossy and must never become the primary source of truth. The source of truth is always externalized:
+- Logs $\to$ `ObservationPack` (`obs://...`)
+- Design $\to$ `SPEC.md`
+- Tasks $\to$ Ticket graph
+- Code changes $\to$ Git commits and test suites
+
+## Verification
+
+The upstream full suite passes on its original Pi 0.85.1 target (195 tests). Running that unmodified source against 1.0.2 exposed type errors and the failed-command classification bug; this integration therefore does not claim blanket upstream compatibility.
+
+Perfect Pi adds real AgentSession adapter tests for guarded fusion, nested execution evidence, nonzero exit, mutation failure, CLI restrictions, exact archive recall, reducer fallback/accounting, verified receipts, and the 20-request budget. Upstream's selected 15 compaction/recovery/package integration tests also passed against an isolated Pi 1.0.2 dependency set. Live provider authentication, end-to-end terminal rendering and savings benchmarks remain separate checks.
+
+Run:
+
+```bash
+node setup.mjs --skip-package-install
+node doctor.mjs
+node --test *.test.mjs
+node skill-audit.mjs
+```
+
+SoL-Pi adapter tests require its pinned package installed through setup. They use deterministic faux responses, not remote providers.
+
+## Rollback
+
+Set all four feature flags to false in the effective config, then `/reload` or restart Pi. Global changes must also update `global/sol-pi.json` in the repository or the next setup will restore the managed profile. Preserve archives and session logs so old evidence remains available. Removing the adapter without disabling its managed registration is temporary: setup restores owned resources.
+
+## Measurement and Clipboard Safety
+
+`observe.mjs` reads the observation-pack ledger and deduplicates archive IDs. Recall receipts and tool calls are alternative sources, not added together. Reducer requests use pre-dispatch attempts, while applied/fallback outcomes use the upstream journal; response usage is counted once, including rejected responses. Counts are operational evidence, not proof of monetary savings.
+
+The palette uses only the clipboard helper beside its own managed extension resources, never a script chosen from the current repository. It runs outside the TUI event loop with a bounded deadline. Native paths are passed as data, PNG signatures are checked, and a unique temporary file is renamed to the destination only after successful extraction. A failed extraction preserves any existing destination. Native Linux and Windows behavior requires platform verification in addition to mocked command tests.
+
+## Compaction Model
+
+Pi handles manual, capacity/overflow and SoL-Pi OCC compaction using its native model selection. Choose models through Pi settings and `/model`, and authenticate through Pi. Reducer consent and request accounting remain independent. See [runtime compatibility policy](pi-compatibility.md).
+
+## Sources
+
+- https://github.com/NVlabs/SoL-Pi/tree/e1a586af0ad8956f42ae5b26bba20e48fbf30e00
+- https://github.com/NVlabs/SoL-Pi/blob/e1a586af0ad8956f42ae5b26bba20e48fbf30e00/docs/compatibility.md
+- https://github.com/NVlabs/SoL-Pi/blob/e1a586af0ad8956f42ae5b26bba20e48fbf30e00/SECURITY.md

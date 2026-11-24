@@ -435,64 +435,33 @@ test("a difference in code or resources is a launch plan, not an in-place change
   });
 });
 
-test("an unavailable model preference is diagnosed, never reported applied", async (t) => {
+test("soft use preserves Pi's model and never reports a managed model preference", async t => {
   const h = harness();
   await installManager(h);
-  const paired = await threeRevisions(h, {
-    name: "pair-model",
-    // The running revision declares the model this session already carries, so
-    // what is exercised is the target's absent preference rather than a user's
-    // own model being protected.
-    first: {
-      runtime: { thinking: "low", model: { provider: "wardrobe-local", id: "fixture-local" } },
-    },
-    second: {
-      runtime: {
-        model: { provider: "wardrobe-absent-provider", id: "absent-model" },
-        thinking: "high",
-      },
-    },
+  const pair = await threeRevisions(h, {
+    name: "pi-owned-model",
+    first: { runtime: { thinking: "low" } },
+    second: { runtime: { thinking: "high" } },
     third: { runtime: { thinking: "medium" } },
   });
-  const one = await installSource(h, paired.first);
-  const two = await installSource(h, paired.second);
-
+  const one = await installSource(h, pair.first);
+  const two = await installSource(h, pair.second);
   const revisionDir = one.staging.agentDir;
   const session = launched(h, one.plan.planId, { revisionDir });
   t.after(() => session.kill());
   await session.waitForCommands(["fixture-state", "wardrobe"]);
   await session.useLocalModel();
   const before = sessionState(revisionDir);
-
   await session.command(`wardrobe use ${two.plan.planId}`);
   const result = await appendedResult(session, revisionDir);
   assert.equal(result.ok, true, result.text);
-
-  const model = result.applied.find((row) => row.field === "model");
-  // Intended is what the revision asked for and effective is what the session
-  // still runs: the two differ, which is the report being honest.
-  assert.equal(model.intended, "wardrobe-absent-provider/absent-model");
-  assert.equal(model.effective, "wardrobe-local/fixture-local", "the session's model changed");
-  assert.equal(model.status, "different", `the row reports ${model.status}`);
-  assert.ok(
-    result.diagnostics.some((entry) => /wardrobe-absent-provider\/absent-model/.test(entry.reason)),
-    `the unavailable preference was not diagnosed: ${JSON.stringify(result.diagnostics)}`
-  );
-
+  assert.equal(result.applied.some(row => row.field === "model"), false);
+  assert.equal(Object.hasOwn(result.intended, "model"), false);
   await session.command("fixture-state");
   const after = sessionState(revisionDir);
-  assert.equal(after.model, before.model, "the model changed without being asked for");
-  // The rest of the soft change still landed, and says so.
-  assert.equal(after.thinkingLevel, "high", "one refused preference blocked the others");
-  assert.equal(result.state, "partly-applied", result.state);
+  assert.equal(after.model, before.model);
+  assert.equal(after.thinkingLevel, "high");
   await session.close();
-  h.record("unavailable-model-diagnosed", {
-    preference: "wardrobe-absent-provider/absent-model",
-    modelInEffect: model.effective,
-    modelUnchanged: after.model === before.model,
-    state: result.state,
-    diagnostics: result.diagnostics,
-  });
 });
 
 test("a tool nothing provides is reported, and a busy session refuses", async (t) => {
@@ -570,7 +539,6 @@ test("a CLI exclusion and a session's own model are not overridden", async (t) =
       runtime: {
         thinking: "high",
         tools: { enable: ["read", "edit", "bash"] },
-        model: { provider: "wardrobe-local", id: "fixture-local" },
       },
     },
     third: { runtime: { thinking: "medium" } },
@@ -606,20 +574,8 @@ test("a CLI exclusion and a session's own model are not overridden", async (t) =
   });
   assert.equal(result.ok, true, result.result?.text);
   assert.equal(result.result.kind, "soft", JSON.stringify(result.result?.text));
-  const model = result.result.applied.find((row) => row.field === "model");
-  // The session's own model is what stays in effect, and what the report names
-  // as intended — the declared preference was refused, not quietly swapped for.
-  assert.equal(model.effective, "local/something-else", "the session's model changed");
-  assert.equal(model.intended, "local/something-else", "the report adopted the preset's preference");
-  assert.ok(
-    result.result.diagnostics.some((entry) => /explicit choice is not overridden/.test(entry.reason)),
-    JSON.stringify(result.result.diagnostics)
-  );
-  assert.ok(
-    !result.result.diagnostics.some((entry) => /no model named/.test(entry.reason)),
-    "a present model was reported as missing"
-  );
-
+  assert.equal(result.result.effective.model, "local/something-else");
+  assert.equal(result.result.applied.some(row => row.field === "model"), false);
   // And a tool this runtime does not provide is reported rather than selected.
   const toolRow = result.result.applied.find((row) => row.field === "tools");
   assert.ok(toolRow.intended.includes("bash"), `intended tools: ${toolRow.intended.join(", ")}`);
@@ -627,8 +583,8 @@ test("a CLI exclusion and a session's own model are not overridden", async (t) =
 
   await session.close();
   h.record("boundaries-hold", {
-    modelInEffect: model.effective,
-    modelEffective: model.effective,
+    modelInEffect: result.result.effective.model,
+    modelEffective: result.result.effective.model,
     diagnostics: result.result.diagnostics.map((entry) => entry.reason),
     intendedTools: toolRow.intended,
   });

@@ -1,0 +1,100 @@
+{
+  "name": "pi-cc-extensions",
+  "version": "0.9.5",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-coding-agent",
+    "claude-code"
+  ],
+  "license": "MIT",
+  "_id": "pi-cc-extensions@0.9.5",
+  "maintainers": [
+    {
+      "name": "minuque",
+      "email": "jj1053796416@gmail.com"
+    }
+  ],
+  "homepage": "https://github.com/minuque/pi-cc-extensions#readme",
+  "bugs": {
+    "url": "https://github.com/minuque/pi-cc-extensions/issues"
+  },
+  "pi": {
+    "image": "https://raw.githubusercontent.com/minuque/pi-cc-extensions/main/assets/readme/preview.webp",
+    "video": "https://github.com/minuque/pi-cc-extensions/releases/download/v0.9.4/demo.mp4",
+    "themes": [
+      "./themes/cc-dark.json",
+      "./themes/cc-light.json"
+    ],
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "dist": {
+    "shasum": "5316cad08b036d9b73ffef4b1e728152a6442c74",
+    "tarball": "https://registry.npmjs.org/pi-cc-extensions/-/pi-cc-extensions-0.9.5.tgz",
+    "fileCount": 67,
+    "integrity": "sha512-9UrpuL/vw5JNZ0k1qEEodixE8NzpQ6/9wwqqiLhzhw9S8tQ6nYXVkCfEFj2CLkf0z/e7lBpo2S7vN14em3M1rw==",
+    "signatures": [
+      {
+        "sig": "MEUCIFL8ud/1C43DlcAtZbbSa+qhBs+xkIQQ+Hqi76CrxV5HAiEAgR8mQTT4Eti17evY9XqAdgsSAtZwdUxp/4k0ymB/NR8=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIGZaHdjgXkVTteoJnZRofKa8hF298kItoXN65nwAxtYDAiEA7NTxitlaa5T11PHexkmi9SdjYYedW1iu6tu0VxXvybc=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 697294
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "gitHead": "de485ec0e90bd3217f837836093e68cac6df4cbc",
+  "scripts": {
+    "lint": "biome check .",
+    "test": "node --test tests/**/*.test.ts",
+    "format": "biome format --write .",
+    "release": "npm version patch && npm publish",
+    "typecheck": "tsc --noEmit",
+    "preversion": "npm run format && npm run lint && npm run typecheck && npm test && npm run docs:tool-render",
+    "format:check": "biome format .",
+    "release:major": "npm version major && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "docs:tool-render": "node --experimental-strip-types scripts/generate-tool-render-examples.ts"
+  },
+  "_npmUser": {
+    "name": "minuque",
+    "email": "jj1053796416@gmail.com"
+  },
+  "repository": {
+    "url": "git+https://github.com/minuque/pi-cc-extensions.git",
+    "type": "git"
+  },
+  "_npmVersion": "11.19.0",
+  "description": "Claude Code-style TUI output with some personal touches and handy utilities.",
+  "directories": {},
+  "_nodeVersion": "26.7.0",
+  "dependencies": {
+    "jiti": "^2.7.0",
+    "@shikijs/cli": "^4.0.2",
+    "grok-mermaid": "^0.2.2"
+  },
+  "_hasShrinkwrap": false,
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^26.1.1",
+    "@biomejs/biome": "2.5.5"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "^0.84.0",
+    "@earendil-works/pi-tui": "^0.84.0",
+    "@earendil-works/pi-coding-agent": "^0.84.0"
+  },
+  "bundleDependencies": [],
+  "_npmOperationalInternal": {
+    "tmp": "tmp/pi-cc-extensions_0.9.5_1790264531074_0.7273257686062065",
+    "host": "s3://npm-registry-packages-npm-production"
+  }
+}

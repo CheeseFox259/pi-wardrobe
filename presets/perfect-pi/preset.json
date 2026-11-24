@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "id": "perfect-pi/full",
+  "name": "Perfect Pi Full",
+  "version": "1.0.4",
+  "compatibility": {
+    "pi": ">=1.3.0",
+    "platforms": [
+      "darwin-arm64"
+    ]
+  },
+  "packages": {
+    "self": {
+      "source": "."
+    },
+    "native-0": {
+      "source": "git:github.com/CheeseFox259/SoL-Pi@93fd67a833da1b6236cf2582f02f7a6454d6d941"
+    },
+    "native-1": {
+      "source": "npm:pi-web-access@0.37.0"
+    },
+    "native-2": {
+      "source": "npm:pi-matt-subagent@0.9.0"
+    },
+    "native-3": {
+      "source": "npm:pi-agent-browser-native@0.9.3"
+    },
+    "native-4": {
+      "source": "npm:@narumitw/pi-lsp@0.49.9"
+    },
+    "native-5": {
+      "source": "npm:@aliou/pi-processes@0.13.2"
+    },
+    "native-6": {
+      "source": "npm:@aliou/pi-guardrails@0.19.0"
+    },
+    "native-7": {
+      "source": "npm:@narumitw/pi-statusline@0.50.2"
+    }
+  },
+  "resources": [
+    {
+      "package": "self",
+      "kind": "extensions",
+      "include": [
+        "global/extensions/command-palette.ts",
+        "global/extensions/image-handoff.ts",
+        "global/extensions/mcp-settings.ts",
+        "global/extensions/model-habits.ts",
+        "global/extensions/question.ts",
+        "global/extensions/questionnaire.ts",
+        "global/extensions/sol-pi.ts",
+        "global/extensions/structured-output.ts",
+        "global/extensions/tmux-supervisor.ts",
+        "global/extensions/tools.ts"
+      ]
+    },
+    {
+      "package": "self",
+      "kind": "skills",
+      "include": [
+        "skills/ask-matt/SKILL.md",
+        "skills/claude-handoff/SKILL.md",
+        "skills/code-review/SKILL.md",
+        "skills/codebase-design/SKILL.md",
+        "skills/diagnosing-bugs/SKILL.md",
+        "skills/domain-modeling/SKILL.md",
+        "skills/frontend-design/SKILL.md",
+        "skills/git-guardrails-claude-code/SKILL.md",
+        "skills/grill-me/SKILL.md",
+        "skills/grill-with-docs/SKILL.md",
+        "skills/grilling/SKILL.md",
+        "skills/handoff/SKILL.md",
+        "skills/implement/SKILL.md",
+        "skills/implement-spec/SKILL.md",
+        "skills/improve-codebase-architecture/SKILL.md",
+        "skills/loop-me/SKILL.md",
+        "skills/maintain/SKILL.md",
+        "skills/migrate-to-shoehorn/SKILL.md",
+        "skills/pr/SKILL.md",
+        "skills/project-architecture/SKILL.md",
+        "skills/prototype/SKILL.md",
+        "skills/research/SKILL.md",
+        "skills/resolving-merge-conflicts/SKILL.md",
+        "skills/retro/SKILL.md",
+        "skills/route/SKILL.md",
+        "skills/scaffold-exercises/SKILL.md",
+        "skills/setup-matt-pocock-skills/SKILL.md",
+        "skills/setup-pre-commit/SKILL.md",
+        "skills/setup-ts-deep-modules/SKILL.md",
+        "skills/skill-creator/SKILL.md",
+        "skills/tdd/SKILL.md",
+        "skills/teach/SKILL.md",
+        "skills/to-questionnaire/SKILL.md",
+        "skills/to-spec/SKILL.md",
+        "skills/to-tickets/SKILL.md",
+        "skills/triage/SKILL.md",
+        "skills/vercel-react-best-practices/SKILL.md",
+        "skills/verify-product/SKILL.md",
+        "skills/wait-what/SKILL.md",
+        "skills/wayfinder/SKILL.md",
+        "skills/web-design-guidelines/SKILL.md",
+        "skills/wizard/SKILL.md",
+        "skills/writing-beats/SKILL.md",
+        "skills/writing-for-agents/SKILL.md",
+        "skills/writing-fragments/SKILL.md",
+        "skills/writing-shape/SKILL.md",
+        "skills/update/SKILL.md"
+      ]
+    },
+    {
+      "package": "self",
+      "kind": "prompts",
+      "include": [
+        "global/prompts/release-check.md",
+        "global/prompts/ui-check.md",
+        "global/prompts/verify.md"
+      ]
+    },
+    {
+      "package": "native-1",
+      "kind": "extensions",
+      "include": [
+        "dist/index.js"
+      ]
+    },
+    {
+      "package": "native-2",
+      "kind": "extensions",
+      "include": [
+        "extensions/subagent.ts"
+      ]
+    },
+    {
+      "package": "native-2",
+      "kind": "prompts",
+      "include": [
+        "prompts/code-review.md",
+        "prompts/design-it-twice.md",
+        "prompts/research.md"
+      ]
+    },
+    {
+      "package": "native-3",
+      "kind": "extensions",
+      "include": [
+        "dist/extensions/agent-browser/index.js"
+      ]
+    },
+    {
+      "package": "native-4",
+      "kind": "extensions",
+      "include": [
+        "dist/index.ts"
+      ]
+    },
+    {
+      "package": "native-5",
+      "kind": "extensions",
+      "include": [
+        "extensions/processes/index.ts",
+        "extensions/processes-logs/index.ts",
+        "extensions/processes-dock/index.ts"
+      ]
+    },
+    {
+      "package": "native-5",
+      "kind": "skills",
+      "include": [
+        "skills/pi-processes/SKILL.md"
+      ]
+    },
+    {
+      "package": "native-6",
+      "kind": "extensions",
+      "include": [
+        "extensions/path-access/index.ts",
+        "extensions/guardrails/index.ts",
+        "extensions/permission-gate/index.ts",
+        "extensions/herdr/index.ts"
+      ]
+    },
+    {
+      "package": "native-7",
+      "kind": "extensions",
+      "include": [
+        "dist/index.ts"
+      ]
+    }
+  ],
+  "runtime": {
+    "thinking": "high"
+  }
+}

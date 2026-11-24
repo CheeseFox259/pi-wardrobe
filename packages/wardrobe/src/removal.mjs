@@ -17,6 +17,8 @@ import { isStale, leaseReason, LeaseStore } from "./lease.mjs";
 import { BindingStore } from "./binding.mjs";
 import { RetainStore } from "./retain.mjs";
 import { assertSafeId, StagingStore, verifyPlanConfinement } from "./staging.mjs";
+import { NativeStore } from './native-store.mjs';
+import { nativeReferences } from './native-ownership.mjs';
 import { PlanStore } from "./approval.mjs";
 import { repositoryKeyOf } from "./identity.mjs";
 import { runningRevisionOf } from "./session.mjs";
@@ -260,7 +262,7 @@ export function evaluateRevision({ agentDir, report, session = null, expectedPre
   }
 
   // 4. Reference checks (Active lease, running session, strict binding, retain)
-  const blockingReferences = [];
+  const blockingReferences = nativeReferences(new NativeStore(agentDir), revision);
 
   // Active lease
   if (lease && !isStale(lease)) {
@@ -336,6 +338,9 @@ export function executeRemovalSingle({ agentDir, revision }) {
   const stagingStore = new StagingStore(agentDir);
   const planStore = new PlanStore(agentDir);
 
+  const native = new NativeStore(agentDir);
+  if (nativeReferences(native, revision).length) throw new Error('该修订仍被原生 Pi 使用、设为默认或被旧对话引用。');
+
   // TOCTOU check 1: Active lease right before deletion
   const lease = leaseStore.read(revision);
   if (lease && !isStale(lease)) {
@@ -356,6 +361,9 @@ export function executeRemovalSingle({ agentDir, revision }) {
   stagingStore.delete(revision);
   leaseStore.delete(revision);
   planStore.delete(revision);
+  const config = native.read();
+  for (const [id, profile] of Object.entries(config.profiles)) if (profile.revision === revision) delete config.profiles[id];
+  if (config.initialized) native.save(config);
 
   return {
     revision,

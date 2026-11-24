@@ -13,7 +13,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { RESULT_TYPE } from "../packages/wardrobe/extensions/wardrobe.mjs";
 import { composedPreset, minimalCoding, writePreset } from "./support/presets.mjs";
-import { useHarness } from "./support/harness.mjs";
+import { launchEnv, useHarness } from "./support/harness.mjs";
+import { RpcSession } from "../fixtures/lib/pi-runner.mjs";
 
 const harness = useHarness("manager-inspection");
 const MANAGER_DIR = resolve(
@@ -52,8 +53,8 @@ test("the manager installs with no preset, MCP or browser dependencies", async (
 
   assert.deepEqual(manifest.dependencies ?? {}, {}, "the manager declares dependencies");
   assert.deepEqual(manifest.scripts ?? {}, {}, "the manager declares install scripts");
-  assert.deepEqual(manifest.pi.extensions, ["extensions/wardrobe.mjs"]);
-  assert.deepEqual(manifest.pi.skills, [], "the manager ships no skills");
+  assert.deepEqual(manifest.pi.extensions, ["extensions/index.mjs"]);
+  assert.deepEqual(manifest.pi.skills, ["skills/wardrobe-update", "skills/wardrobe-maintain"], "only shared preset methods ship with the manager");
   assert.deepEqual(manifest.pi.prompts, [], "the manager ships no prompts");
   assert.deepEqual(manifest.pi.themes, [], "the manager ships no themes");
 
@@ -65,11 +66,11 @@ test("the manager installs with no preset, MCP or browser dependencies", async (
     declaredSource: declared[0],
     dependencies: 0,
     installScripts: 0,
-    resources: { skills: 0, prompts: 0, themes: 0 },
+    resources: { skills: 2, prompts: 0, themes: 0 },
   });
 });
 
-test("a live session registers /wardrobe and nothing else", async () => {
+test("a live session registers Wardrobe and its two shared methods", async () => {
   const h = harness();
   await installManager(h);
 
@@ -83,12 +84,13 @@ test("a live session registers /wardrobe and nothing else", async () => {
     await without.close();
   }
 
-  const session = await h.pi.rpc("primary");
+  const child=h.sandbox.runner.fork(process.execPath,[h.runtime.cliPath,'--mode','rpc','--offline','--no-session'],{cwd:h.sandbox.project,env:launchEnv(h)});
+  const session=new RpcSession(child,h.sandbox.runner,{agentName:'primary',agentDir:h.agentPath('primary'),eventsLog:h.sandbox.extensionLog});
   try {
     const names = await session.commandNames();
     assert.ok(names.includes("wardrobe"), `/wardrobe not registered: ${names.join(", ")}`);
     const added = names.filter((name) => !baselineCommands.includes(name));
-    assert.deepEqual(added, ["wardrobe"], `unexpected commands from the manager: ${added.join(", ")}`);
+    assert.deepEqual(added.sort(), ["skill:wardrobe-maintain", "skill:wardrobe-update", "wardrobe"], `unexpected commands from the manager: ${added.join(", ")}`);
     h.record("wardrobe-command-registered", { addedCommands: added });
   } finally {
     await session.close();

@@ -1,0 +1,63 @@
+{
+  "mcpServers": {
+    "codebase-memory": {
+      "command": "{{node}}",
+      "args": [
+        "{{agentDir}}/scripts/mcp-launch.mjs",
+        "--public",
+        "{{agentDir}}",
+        "codebase-memory",
+        "npx",
+        "--yes",
+        "--prefer-offline",
+        "codebase-memory-mcp@0.11.0"
+      ],
+      "env": {
+        "CBM_CACHE_DIR": "{{agentDir}}/mcp-data/codebase-memory"
+      },
+      "exposure": "codemode",
+      "toolExposure": {
+        "index_repository": "codemode",
+        "search_graph": "codemode",
+        "query_graph": "codemode",
+        "trace_path": "codemode",
+        "get_code_snippet": "codemode",
+        "get_file_outline": "codemode",
+        "get_graph_schema": "codemode",
+        "compare_graphs": "codemode",
+        "get_architecture": "codemode",
+        "search_code": "codemode",
+        "list_projects": "codemode",
+        "index_status": "codemode",
+        "check_index_coverage": "codemode",
+        "detect_changes": "codemode",
+        "*": "hidden"
+      },
+      "description": "Local code graph: index repositories, search symbols, trace calls, inspect architecture and index coverage. Verify graph findings against source; no ADR writes or project deletion."
+    },
+    "context-mode": {
+      "command": "{{node}}",
+      "args": [
+        "{{agentDir}}/scripts/mcp-launch.mjs",
+        "--public",
+        "{{agentDir}}",
+        "context-mode",
+        "npx",
+        "--yes",
+        "--prefer-offline",
+        "context-mode@1.0.169"
+      ],
+      "env": {
+        "CONTEXT_MODE_DIR": "{{agentDir}}/mcp-data/context-mode"
+      },
+      "exposure": "codemode",
+      "toolExposure": {
+        "ctx_index": "codemode",
+        "ctx_search": "codemode",
+        "ctx_stats": "codemode",
+        "*": "hidden"
+      },
+      "description": "Local document FTS5 indexing and BM25 retrieval via ctx_index/ctx_search. Stats describe this server only; no arbitrary execution, web fetch, lifecycle hooks or automatic Pi session memory."
+    }
+  }
+}

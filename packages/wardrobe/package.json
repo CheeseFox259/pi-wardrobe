@@ -3,19 +3,49 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Wardrobe preset manager for Pi: discover, review and inspect preset declarations.",
+  "description": "Native Pi composer preset management, clean session switching, defaults and updates.",
   "license": "MIT",
   "bin": {
     "wardrobe": "bin/wardrobe.mjs"
   },
   "pi": {
-    "extensions": ["extensions/wardrobe.mjs"],
-    "skills": [],
+    "extensions": [
+      "extensions/index.mjs"
+    ],
+    "skills": ["skills/wardrobe-update", "skills/wardrobe-maintain"],
     "prompts": [],
     "themes": []
   },
   "wardrobe": {
     "kind": "manager",
-    "commands": ["list", "show", "explain", "install", "status", "doctor", "use"]
+    "commands": [
+      "create",
+      "edit",
+      "copy",
+      "draft",
+      "drafts",
+      "save",
+      "import",
+      "export",
+      "bind",
+      "current",
+      "presets",
+      "use",
+      "default",
+      "updates",
+      "update",
+      "maintain",
+      "details",
+      "resume",
+      "verify",
+      "repair",
+      "uninstall",
+      "list",
+      "show",
+      "explain",
+      "install",
+      "status",
+      "doctor"
+    ]
   }
 }

@@ -7,7 +7,7 @@
 // and that a failure stays visible as a failure.
 
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -265,6 +265,23 @@ test("a git package is installed at the approved commit", async () => {
     commit: entry.identity.commit,
     filtered: entry.filtered,
   });
+});
+
+test("exact package staging refreshes registry metadata instead of trusting a stale packument", async () => {
+  const agentDir = mkdtempSync(join(tmpdir(), "wardrobe-metadata-")), capture = join(agentDir, "environment.json"), cli = join(agentDir, "capture-pi.mjs");
+  writeFileSync(cli, `import {writeFileSync} from 'node:fs';writeFileSync(process.env.CAPTURE,JSON.stringify({preferOffline:process.env.npm_config_prefer_offline,preferOnline:process.env.npm_config_prefer_online}));process.exit(1);\n`);
+  const sealed = sealPlan({
+    planId: "metadata",
+    declaration: { name: "Metadata", version: "1.0.0", schemaVersion: 1 },
+    identity: { source: "npm:metadata-fixture@1.0.0", id: "metadata" },
+    installationSurfaces: [{ alias: "tools", source: "npm:metadata-fixture@1.0.0", artifact: { integrity: "sha512-fixture", tarball: "https://registry.npmjs.org/metadata-fixture/-/metadata-fixture-1.0.0.tgz" } }],
+    resourceSelectors: [],
+  });
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ versions: { "1.0.0": { version: "1.0.0", dist: { integrity: "sha512-fixture", tarball: "https://registry.npmjs.org/metadata-fixture/-/metadata-fixture-1.0.0.tgz" } } } }) });
+  try {
+    await assert.rejects(() => installApprovedPlan({ plan: { ...sealed, approved: { digest: sealed.digest, at: "2026-01-01T00:00:00.000Z" } }, agentDir, env: { WARDROBE_PI_CLI: cli, CAPTURE: capture }, registry: "https://registry.npmjs.org/", fetchImpl }), error => { assert.match(error.message, /installation failed/); return true; });
+    assert.deepEqual(JSON.parse(readFileSync(capture, "utf8")), { preferOnline: "true" });
+  } finally { rmSync(agentDir, { recursive: true, force: true }); }
 });
 
 test("a self source with no pinned native source refuses to install", async () => {

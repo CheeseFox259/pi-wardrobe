@@ -1,0 +1,91 @@
+{
+  "name": "pi-matt-subagent",
+  "version": "0.5.3",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "_id": "pi-matt-subagent@0.5.3",
+  "maintainers": [
+    {
+      "name": "hu3rror",
+      "email": "hu3rror@protonmail.com"
+    }
+  ],
+  "homepage": "https://github.com/hu3rror/pi-matt-subagent#readme",
+  "bugs": {
+    "url": "https://github.com/hu3rror/pi-matt-subagent/issues"
+  },
+  "pi": {
+    "prompts": [
+      "./prompts"
+    ],
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "dist": {
+    "shasum": "8eef319bf23515e955820c58e20b7d60af27d354",
+    "tarball": "https://registry.npmjs.org/pi-matt-subagent/-/pi-matt-subagent-0.5.3.tgz",
+    "fileCount": 14,
+    "integrity": "sha512-BA+o1jtOnPfb/+3eGVddMunFcOfsJVnS2qhz5k+efc1CqshoKjMeIadF10LQ3Kuuw1qd2ekHTauWEPEU5htn7A==",
+    "signatures": [
+      {
+        "sig": "MEQCIEQiQxkp6PnxZrfkgzjMdJzs6WKpDr5uhZ1ButXK/M7XAiB8pviBBlzAHjFD3KUNkgPSDwDqdumNtWTY0uDdqgs7Jg==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/pi-matt-subagent@0.5.3",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 228083
+  },
+  "type": "module",
+  "gitHead": "3bcd28f54f4e55a4b19f8251ce63a77674dfd3b6",
+  "scripts": {
+    "test": "node --test src/lib.test.ts src/research-e2e.test.ts src/ext-check.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "_npmUser": {
+    "name": "GitHub Actions",
+    "email": "npm-oidc-no-reply@github.com",
+    "approver": {
+      "name": "hu3rror",
+      "email": "hu3rror@protonmail.com"
+    },
+    "trustedPublisher": {
+      "id": "github",
+      "oidcConfigId": "oidc:13fee560-c28c-4ce6-be40-d83b272e24fd"
+    }
+  },
+  "repository": {
+    "url": "git+https://github.com/hu3rror/pi-matt-subagent.git",
+    "type": "git"
+  },
+  "_npmVersion": "11.19.0",
+  "description": "Blocking + background subagents for skills that require subagents (code-review, design-it-twice, improve-codebase-architecture, research, wayfinder, grilling).",
+  "directories": {},
+  "_nodeVersion": "24.20.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "_hasShrinkwrap": false,
+  "devDependencies": {
+    "typebox": "^1.3.34",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "typebox": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "_npmOperationalInternal": {
+    "tmp": "tmp/pi-matt-subagent_0.5.3_1790253057426_0.911172572466519",
+    "host": "s3://npm-registry-packages-npm-production"
+  }
+}

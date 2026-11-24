@@ -1,0 +1,147 @@
+{
+  "name": "@aliou/pi-processes",
+  "version": "0.12.0",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "processes"
+  ],
+  "license": "MIT",
+  "_id": "@aliou/pi-processes@0.12.0",
+  "maintainers": [
+    {
+      "name": "aliou",
+      "email": "code+npm@general-dexterity.com"
+    }
+  ],
+  "homepage": "https://github.com/aliou/pi-processes#readme",
+  "bugs": {
+    "url": "https://github.com/aliou/pi-processes/issues"
+  },
+  "pi": {
+    "image": "https://assets.aliou.me/github/aliou/pi-processes/banner-v0.10.x.png",
+    "video": "https://assets.aliou.me/pi-extensions/demos/processes/v0.10.0/agent-starts-processes.mp4",
+    "skills": [
+      "./skills/pi-processes"
+    ],
+    "extensions": [
+      "./extensions/processes/index.ts",
+      "./extensions/processes-logs/index.ts",
+      "./extensions/processes-dock/index.ts"
+    ]
+  },
+  "dist": {
+    "shasum": "62a5db50cf62790f67daca386245bb1130a4c314",
+    "tarball": "https://registry.npmjs.org/@aliou/pi-processes/-/pi-processes-0.12.0.tgz",
+    "fileCount": 120,
+    "integrity": "sha512-Xf/lWTQ15M0ZJKjZrbmuhWHnJtSD5h9lQKVNJpwqy4njZhlqRwMLyJ55j16tOUDEujbTPPmZpBecBJPuQJ9R9Q==",
+    "signatures": [
+      {
+        "sig": "MEUCIAeh4KL4P9BbfRiGRkGjiGC5UOkhh5mjW0ZCFHmAlVhsAiEAjzYq+lbLb8kjHjOez7GzpgCvnOQVWXJojrCwZSEYJwc=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@aliou%2fpi-processes@0.12.0",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 463653
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "gitHead": "16c1080030e5efd175a268e44ce665fb97bcb68f",
+  "private": false,
+  "scripts": {
+    "lint": "biome check",
+    "test": "vitest run",
+    "format": "biome check --write",
+    "prepare": "[ -d .git ] && husky || true",
+    "release": "pnpm changeset publish",
+    "version": "changeset version",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "changeset": "changeset",
+    "typecheck": "tsc --noEmit",
+    "gen:schema": "pi-settings-schema -p extensions/processes/config/types.ts -t ProcessConfig -o schema.json --version 0.10.6",
+    "test:evals": "vitest run --config tests/evals/vitest.config.ts",
+    "check:schema": "pi-settings-schema -p extensions/processes/config/types.ts -t ProcessConfig -o schema.json --version 0.10.6 --check",
+    "check:lockfile": "pnpm install --frozen-lockfile --ignore-scripts",
+    "typecheck:evals": "tsc --noEmit -p tests/evals/tsconfig.json",
+    "check:changesets": "node scripts/check-changesets.ts"
+  },
+  "_npmUser": {
+    "name": "GitHub Actions",
+    "email": "npm-oidc-no-reply@github.com",
+    "approver": {
+      "name": "aliou",
+      "email": "code+npm@general-dexterity.com"
+    },
+    "trustedPublisher": {
+      "id": "github",
+      "oidcConfigId": "oidc:e2aab43b-9966-4e62-ba38-2f6a976140f9"
+    }
+  },
+  "repository": {
+    "url": "git+https://github.com/aliou/pi-processes.git",
+    "type": "git"
+  },
+  "_npmVersion": "12.0.2",
+  "description": "![banner](https://assets.aliou.me/github/aliou/pi-processes/banner-v0.10.x.png)",
+  "directories": {},
+  "_nodeVersion": "24.19.0",
+  "dependencies": {
+    "@aliou/sh": "^0.2.2",
+    "@aliou/pi-utils-ui": "^0.5.0",
+    "@aliou/pi-utils-settings": "^0.19.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "_hasShrinkwrap": false,
+  "packageManager": "pnpm@11.5.1",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "memfs": "^4.57.2",
+    "vitest": "^4.1.5",
+    "typebox": "1.1.38",
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.10",
+    "vitest-evals": "0.15.0",
+    "@biomejs/biome": "^2.5.8",
+    "@changesets/cli": "^2.27.11",
+    "@aliou/biome-plugins": "^0.12.0",
+    "@golevelup/ts-vitest": "^4.0.0",
+    "@earendil-works/pi-ai": "0.84.1",
+    "@earendil-works/pi-tui": "0.84.1",
+    "ts-json-schema-generator": "^2.9.0",
+    "@earendil-works/pi-coding-agent": "0.84.1"
+  },
+  "peerDependencies": {
+    "typebox": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "typebox": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "_npmOperationalInternal": {
+    "tmp": "tmp/pi-processes_0.12.0_1787822475370_0.13538477408224647",
+    "host": "s3://npm-registry-packages-npm-production"
+  }
+}

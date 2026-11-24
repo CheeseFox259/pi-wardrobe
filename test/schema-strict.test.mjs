@@ -5,8 +5,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseSource } from "../packages/wardrobe/src/identity.mjs";
-import { validateDefinition } from "../packages/wardrobe/src/schema.mjs";
+import { validateDefinition, validateOverlay } from "../packages/wardrobe/src/schema.mjs";
 import { composedPreset, minimalCoding } from "./support/presets.mjs";
+import { runCommand } from "../packages/wardrobe/src/commands.mjs";
+
+test("Wardrobe model flags direct users to Pi, including equals syntax", async () => {
+  for (const flag of ['--model other/choice', '--provider other', '--model=other/choice', '--provider=other']) {
+    const result = await runCommand(`use fixture ${flag}`, {env:{}});
+    assert.equal(result.ok, false);
+    assert.match(JSON.stringify(result.result), /model selection belongs to Pi/);
+  }
+});
 
 function reject(definition) {
   const result = validateDefinition(definition);
@@ -24,6 +33,15 @@ test("a self-contained Minimal Coding declaration is accepted", () => {
   const result = validateDefinition(minimalCoding());
   assert.equal(result.ok, true);
   assert.equal(result.definition.id, "minimal-coding");
+});
+
+test("model selection belongs to Pi, not preset declarations or overlays", () => {
+  const runtime = { model: { provider: "user-provider", id: "user-model" } };
+  for (const result of [validateDefinition(minimalCoding({ runtime })), validateOverlay({ runtime })]) {
+    assert.equal(result.ok, false);
+    assert.equal(result.error.diagnostics[0].path, "/runtime/model");
+    assert.match(result.error.format(), /Pi.*model|model.*Pi/i);
+  }
 });
 
 test("a declaration with packages, resources and preferences is accepted", () => {

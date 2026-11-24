@@ -8,14 +8,35 @@
     "node": ">=22.19.0"
   },
   "scripts": {
+    "setup": "node scripts/perfect-pi.mjs setup",
+    "start": "node scripts/perfect-pi.mjs",
+    "doctor": "node scripts/perfect-pi.mjs doctor",
+    "perfect-pi": "node scripts/perfect-pi.mjs",
     "test": "node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
     "fixtures:verify": "node --test --test-concurrency=1 --test-reporter=spec \"test/**/*.test.mjs\" && node fixtures/report.mjs",
-    "fixtures:report": "node fixtures/report.mjs"
+    "fixtures:report": "node fixtures/report.mjs",
+    "test:maintenance": "node --test --test-concurrency=1 test/native-update-workflow.test.mjs test/native-maintenance.test.mjs test/perfect-pi.test.mjs"
   },
   "devDependencies": {
     "node-pty": "^1.1.0"
   },
   "allowScripts": {
     "node-pty@1.1.0": true
+  },
+  "pi": {
+    "extensions": [
+      "packages/wardrobe/extensions/index.mjs"
+    ],
+    "skills": ["packages/wardrobe/skills/wardrobe-update", "packages/wardrobe/skills/wardrobe-maintain"],
+    "prompts": [],
+    "themes": []
+  },
+  "wardrobe": {
+    "kind": "manager",
+    "presets": [
+      "presets/minimal-coding/preset.json",
+      "presets/engineering/preset.json",
+      "presets/perfect-pi/preset.json"
+    ]
   }
 }

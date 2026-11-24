@@ -73,14 +73,6 @@ const FIELDS = {
           disable: { type: "stringArray", required: false },
         },
       },
-      model: {
-        type: "object",
-        required: false,
-        fields: {
-          provider: { type: "text", required: false },
-          id: { type: "text", required: false },
-        },
-      },
       thinking: { type: "enum", values: THINKING_LEVELS, required: false },
     },
   },

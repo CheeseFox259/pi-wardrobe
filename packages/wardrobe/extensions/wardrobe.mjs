@@ -85,7 +85,6 @@ export default function (pi) {
       ...(keptFrom ? { keptFrom, keptTo } : {}),
       appliedAt: new Date().toISOString(),
       tools: pi.getActiveTools(),
-      model: ctx.model ? { id: ctx.model.id, provider: ctx.model.provider } : null,
       thinking: thinking ?? ctx.thinkingLevel ?? null,
       persona: instructionsFor(ctx),
     });
@@ -95,17 +94,6 @@ export default function (pi) {
     if (restorePlan.tools.changed) {
       pi.setActiveTools(restorePlan.tools.resulting);
     }
-    if (restorePlan.modelChanged && restorePlan.model.requested) {
-      const at = restorePlan.model.requested.indexOf("/");
-      if (at > 0) {
-        const provider = restorePlan.model.requested.slice(0, at);
-        const id = restorePlan.model.requested.slice(at + 1);
-        const found = ctx.modelRegistry?.find?.(provider, id);
-        if (found) {
-          await pi.setModel(found);
-        }
-      }
-    }
     if (restorePlan.thinking.changed && restorePlan.thinking.requested !== undefined) {
       pi.setThinkingLevel(restorePlan.thinking.requested);
     }
@@ -114,7 +102,6 @@ export default function (pi) {
   function describeRestoreChanges(restorePlan) {
     const parts = [];
     if (restorePlan.tools.changed) parts.push(`tools: ${restorePlan.tools.resulting.join(", ")}`);
-    if (restorePlan.modelChanged) parts.push(`model: ${restorePlan.model.requested}`);
     if (restorePlan.thinking.changed) parts.push(`thinking: ${restorePlan.thinking.requested}`);
     if (restorePlan.personaChanged) parts.push("instructions updated");
     return parts.length ? parts.join("; ") : "none";
@@ -154,7 +141,6 @@ export default function (pi) {
       mode: baseline.mode,
       revision: baseline.revision,
       tools: baseline.tools ?? [],
-      model: baseline.model ?? null,
       thinking: baseline.thinking ?? null,
       persona: baseline.persona ?? [],
       restrictions: binding?.restrictions ?? [],
@@ -348,25 +334,7 @@ function capabilityOf(pi, ctx, { adopted, compacting: isCompacting, instructions
 
     model: () => (ctx.model ? { id: ctx.model.id, provider: ctx.model.provider } : null),
     thinkingLevel: () => ctx.thinkingLevel ?? null,
-    setModel: (model) => pi.setModel(model),
     setThinkingLevel: (level) => pi.setThinkingLevel(level),
-
-    /**
-     * Find a declared preference in the catalogue, and whether it can be used.
-     *
-     * The full model object is returned as well as a summary because Pi sets a
-     * model by identity, not by name; handing it a summary would be a guess.
-     */
-    resolveModel: (provider, id) => {
-      const found = ctx.modelRegistry?.find?.(provider, id) ?? null;
-      return {
-        model: found,
-        summary: found ? { id: found.id, provider: found.provider } : null,
-        // `null` when the runtime cannot answer, which is not the same as "no
-        // credentials" and must not be reported as one.
-        hasAuth: found ? (ctx.modelRegistry.hasConfiguredAuth?.(found) ?? null) : null,
-      };
-    },
 
     systemPrompt: () => ctx.getSystemPrompt(),
     branch: () => ctx.sessionManager.getBranch(),

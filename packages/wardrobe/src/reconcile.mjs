@@ -2,7 +2,7 @@
 //
 // In Pi, navigating between branches moves the active conversation to a
 // different point in the session tree. A branch may carry soft overrides
-// (tools, model, thinking, persona), or it may have been recorded under a
+// (tools, thinking, persona), or it may have been recorded under a
 // different revision or an entirely different preset.
 //
 // Wardrobe guarantees safe branch-state navigation:
@@ -16,21 +16,9 @@
 // 4. Executable resources are NEVER loaded or swapped in-process; history is
 //    never rewritten or deleted.
 
-import { planTools, planModel, planThinking, planPersona } from "./apply.mjs";
+import { planTools, planThinking, planPersona } from "./apply.mjs";
 import { appliedAgainst } from "./session.mjs";
 import { approvedAtOf, unmetRequirementsOf } from "./binding.mjs";
-
-/**
- * Normalize model identifier to "provider/id" string if possible.
- */
-export function normalizeModelString(model) {
-  if (!model) return null;
-  if (typeof model === "string") return model;
-  if (typeof model === "object" && model.provider && model.id) {
-    return `${model.provider}/${model.id}`;
-  }
-  return null;
-}
 
 /**
  * Build a relaunch plan object for a blocked reconciliation.
@@ -101,7 +89,6 @@ export function normalizeToolSelection(entries, baseline = []) {
 export function computeSoftRestorePlan({ desired, runtime, restrictions = [], baseline = null }) {
   const currentTools = runtime?.tools ?? [];
   const availableTools = runtime?.availableTools ?? currentTools;
-  const currentModel = normalizeModelString(runtime?.model);
   const currentThinking = runtime?.thinking ?? null;
   const currentPersona = runtime?.persona ?? [];
 
@@ -119,13 +106,6 @@ export function computeSoftRestorePlan({ desired, runtime, restrictions = [], ba
     available: availableTools,
   });
 
-  const desiredModel = normalizeModelString(desired?.model);
-  const model = planModel({
-    preference: desiredModel ? { value: desiredModel } : null,
-    effective: currentModel,
-    chosenHere: null,
-  });
-
   const thinking = planThinking({
     preference: desired?.thinking ? { value: desired.thinking } : null,
     effective: currentThinking,
@@ -136,14 +116,11 @@ export function computeSoftRestorePlan({ desired, runtime, restrictions = [], ba
     active: currentPersona,
   });
 
-  const modelChanged = Boolean(model.applies && model.requested !== model.effective);
   const personaChanged = JSON.stringify(persona.resulting) !== JSON.stringify(currentPersona);
-  const hasChanges = tools.changed || modelChanged || thinking.changed || personaChanged;
+  const hasChanges = tools.changed || thinking.changed || personaChanged;
 
   return {
     tools,
-    model,
-    modelChanged,
     thinking,
     persona,
     personaChanged,
@@ -172,7 +149,6 @@ export function reconcileState({
 }) {
   const currentEffective = {
     tools: runtime?.tools ?? [],
-    model: normalizeModelString(runtime?.model),
     thinking: runtime?.thinking ?? null,
     persona: runtime?.persona ?? [],
   };
@@ -186,7 +162,6 @@ export function reconcileState({
         mode: rawDesired?.mode ?? baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
         revision: rawDesired?.revision ?? baseline?.revision ?? processState?.revision ?? null,
         tools: normalizeToolSelection(rawDesired?.tools ?? baseline?.tools ?? processState?.tools ?? [], baselineTools),
-        model: normalizeModelString(rawDesired?.model ?? baseline?.model ?? processState?.model),
         thinking: rawDesired?.thinking ?? baseline?.thinking ?? processState?.thinking ?? null,
         persona: rawDesired?.persona ?? baseline?.persona ?? processState?.persona ?? [],
       }
@@ -195,7 +170,6 @@ export function reconcileState({
         mode: baseline?.mode ?? processState?.mode ?? binding?.mode ?? "follow",
         revision: baseline?.revision ?? processState?.revision ?? null,
         tools: normalizeToolSelection(baseline?.tools ?? processState?.tools ?? [], baselineTools),
-        model: normalizeModelString(baseline?.model ?? processState?.model),
         thinking: baseline?.thinking ?? processState?.thinking ?? null,
         persona: baseline?.persona ?? processState?.persona ?? [],
       };
@@ -209,7 +183,6 @@ export function reconcileState({
 
   const intended = {
     tools: normalizeToolSelection(desired.tools, baselineTools),
-    model: desired.model,
     thinking: desired.thinking,
     persona: desired.persona,
   };

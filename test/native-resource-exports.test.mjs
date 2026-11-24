@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { activatedSettingsFor } from '../packages/wardrobe/src/launch.mjs';
+import { tmpdir } from 'node:os';
+import { test } from 'node:test';
+import { resolvePiRuntime } from '../fixtures/lib/runtime.mjs';
+import { checkNativeResourceExports } from '../packages/wardrobe/src/native-resource-exports.mjs';
+
+test('native resource discovery rejects selected skills absent from package exports without loading package code', async t => {
+  const root=mkdtempSync(join(tmpdir(),'wardrobe-exports-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const source=join(root,'package');
+  for(const path of ['skills/local','skills/update','extensions','prompts'])mkdirSync(join(source,path),{recursive:true});
+  for(const name of ['local','update'])writeFileSync(join(source,'skills',name,'SKILL.md'),`---\nname: ${name}\ndescription: Native resource fixture\n---\nFixture.\n`);
+  writeFileSync(join(source,'extensions/helper.mjs'),'throw new Error("Unexported helper must remain unselected");\n');
+  writeFileSync(join(source,'prompts/check.md'),'Check the affected behavior.\n');
+  writeFileSync(join(source,'extensions/main.mjs'),'throw new Error("Resource discovery must not load extension code");\n');
+  const writePackage=skills=>writeFileSync(join(source,'package.json'),JSON.stringify({name:'export-fixture',version:'1.0.0',pi:{skills,extensions:['extensions/main.mjs'],prompts:['prompts']},scripts:{install:'exit 42'}}));
+  const plan={installationSurfaces:[{alias:'self',source:'.'}],resourceSelectors:[{package:'self',kind:'skills',loaded:['skills/local/SKILL.md','skills/update/SKILL.md']},{package:'self',kind:'extensions',loaded:['extensions/main.mjs']}]};
+  const input={plan,inventory:[{alias:'self',installedPath:source,source}],cli:resolvePiRuntime().cliPath,inspectionRoot:join(root,'inspection')};
+  // Pi treats an empty export list as convention-based discovery.
+  mkdirSync(join(source,'skills/other'));writeFileSync(join(source,'skills/other/SKILL.md'),'---\nname: other\ndescription: Unselected fixture\n---\nFixture.\n');
+  writePackage(['skills/other/SKILL.md']);
+  await assert.rejects(checkNativeResourceExports(input),error=>{
+    assert.equal(error.code,'RESOURCE_EXPORT_MISSING');
+    assert.deepEqual(error.resources.map(resource=>resource.path),['skills/local/SKILL.md','skills/update/SKILL.md']);return true;
+  });
+  writePackage(['skills/**/SKILL.md','!skills/update/SKILL.md']);
+  await assert.rejects(checkNativeResourceExports(input),/self\/skills\/update\/SKILL.md/);
+  writePackage(['skills']);
+  const discovery=await checkNativeResourceExports(input);
+  assert.ok(discovery.some(r=>r.kind==='extensions'&&r.path==='extensions/main.mjs'&&r.package==='self'));
+  assert.ok(!discovery.some(r=>r.path==='extensions/helper.mjs'));
+  plan.resourceSelectors[0].loaded=['skills/local','skills/update'];
+  await checkNativeResourceExports(input);
+  plan.resourceSelectors[1].loaded=['extensions'];
+  plan.resourceSelectors.push({package:'self',kind:'prompts',loaded:['prompts']});
+  await checkNativeResourceExports(input);
+  const requiredResources=[{package:'self',kind:'skills',loaded:['skills/update/SKILL.md']}];
+  writePackage(['skills/local/SKILL.md']);
+  plan.resourceSelectors[0].loaded=['skills'];
+  await assert.rejects(checkNativeResourceExports({...input,requiredResources}),/self\/skills\/update\/SKILL.md/);
+  writePackage(['skills']);
+  await checkNativeResourceExports({...input,requiredResources});
+  const settings=activatedSettingsFor(input);
+  const core=join(dirname(input.cli),'core');
+  const [{SettingsManager},{DefaultPackageManager}]=await Promise.all(['settings-manager','package-manager'].map(name=>import(pathToFileURL(join(core,name+'.js')).href)));
+  const resources=await new DefaultPackageManager({cwd:root,agentDir:root,settingsManager:SettingsManager.inMemory(settings)}).resolve(async()=> 'error');
+  assert.deepEqual(resources.extensions.filter(r=>r.enabled).map(r=>r.path),[join(source,'extensions/main.mjs')]);
+  assert.deepEqual(resources.prompts.filter(r=>r.enabled).map(r=>r.path),[join(source,'prompts/check.md')]);
+});

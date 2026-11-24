@@ -13,6 +13,8 @@
 // here — a tool an extension registers, an extension that registers nothing —
 // is reported as unverified rather than passed or failed.
 
+import { nativeResourceFilters } from "./resource-filters.mjs";
+import { activateAgentFiles, packageRootFor } from "./agent-files.mjs";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -48,8 +50,11 @@ const BUILTIN_TOOLS = new Set([
  * selected something of that type: a type with no selector loads nothing, so
  * writing the type at all would be describing code nobody approved.
  */
-function activatedSettingsFor({ plan, inventory }) {
-  const sources = new Map(inventory.map((entry) => [entry.alias, entry.source]));
+export function activatedSettingsFor({ plan, inventory, previous = {} }) {
+  const sources = new Map(inventory.map((entry) => [entry.alias,
+    plan.installationSurfaces.find(surface => surface.alias === entry.alias)?.resourceRoot ? packageRootFor(plan, entry) : entry.source,
+  ]));
+  const roots = new Map(inventory.filter(entry => entry.installedPath).map(entry => [entry.alias, packageRootFor(plan, entry)]));
   const packages = plan.installationSurfaces.map((surface) => {
     const declaration = {
       source: sources.get(surface.alias) ?? surface.source,
@@ -60,14 +65,26 @@ function activatedSettingsFor({ plan, inventory }) {
     };
     for (const selector of plan.resourceSelectors) {
       if (selector.package !== surface.alias) continue;
-      declaration[selector.kind] = [...(selector.loaded ?? [])].sort();
+      declaration[selector.kind] = nativeResourceFilters(roots.get(surface.alias), selector.loaded);
     }
     return declaration;
   });
 
-  const settings = { packages };
+  const defaults = plan.agent?.settings ?? {};
+  const localKeys = plan.agent ? [
+    ...Object.keys(defaults), "defaultThinkingLevel",
+    "transport", "steeringMode", "followUpMode", "retry", "httpIdleTimeoutMs", "cacheWarming",
+    "hideThinkingBlock", "showCacheMissNotices", "collapseChangelog", "terminal", "images",
+    "fullscreenExitOutput", "fullscreenScrollbar", "fullscreenCopyOnSelect", "fullscreenWheelScrollLines",
+    "doubleEscapeAction", "treeFilterMode", "showHardwareCursor", "editorPaddingX",
+    "outputPad", "autocompleteMaxVisible", "mermaidRenderingMode", "warnings",
+  ] : [];
+  const preferences = Object.fromEntries(localKeys.filter(key => Object.hasOwn(previous, key)).map(key => [key, previous[key]]));
+  // These are Pi-owned values. Preserve them without applying preset defaults.
+  const nativeModelSettings = Object.fromEntries(["defaultProvider", "defaultModel", "enabledModels", "modelThinkingLevels"].filter(key => Object.hasOwn(previous, key)).map(key => [key, previous[key]]));
+  const settings = { ...defaults, ...preferences, ...nativeModelSettings, packages };
   const tools = toolSelectionFor(plan);
-  if (tools.length > 0) settings.defaultTools = tools;
+  if (tools.length > 0) settings.defaultTools = [...new Set([...(settings.defaultTools ?? []), ...tools])];
   // A declared thinking level belongs in the revision's own settings: a
   // revision that declares one should run at it rather than at whatever the
   // host defaults to. It is also load-bearing beyond intent — Pi reads this
@@ -235,8 +252,9 @@ export async function preflightLaunch({
     );
   }
 
+  const inventory = (report.latest.installed ?? []).map(entry => ({ ...entry, installedPath: entry.installedRelative ? join(revisionDir, entry.installedRelative) : entry.installedPath }));
   const sessionDir = sessionDirFor({ revisionDir, explicit: sessionPath, runId });
-  const activation = activatedSettingsFor({ plan, inventory: report.latest.installed ?? [] });
+  const activation = activatedSettingsFor({ plan, inventory, previous: JSON.parse(readFileSync(join(revisionDir, "settings.json"), "utf8")) });
 
 
   // A requirement the declaration names and this session cannot satisfy is not
@@ -278,6 +296,7 @@ export async function preflightLaunch({
     revisionDir,
     sessionDir,
     activation,
+    inventory,
     cli: requireCli(env, agentDir),
     binding: binding ?? null,
     migration: resolved.migration ?? null,
@@ -293,14 +312,30 @@ export async function preflightLaunch({
  * user, and the caller restores what was there.
  */
 async function observeSelection({ prepared, env, cwd, managerAgentDir }) {
-  const result = await probeLoadedState({
+  const input = {
     cli: prepared.cli,
     agentDir: prepared.revisionDir,
     sessionDir: prepared.sessionDir.path,
     // The probe runs inside the revision too, so it needs the same pointer.
     env: { ...env, WARDROBE_AGENT_DIR: managerAgentDir },
     cwd,
-  });
+  };
+  let result = await probeLoadedState(input);
+  const resourceRoots = Object.fromEntries(prepared.inventory.map(entry => [entry.alias, packageRootFor(prepared.plan, entry)]));
+  let skillPaths = null;
+  const selection = () => reconcileSelection({ plan: prepared.plan, commands: result.commands, resourceRoots });
+  if (result.ok && selection().missing.some(entry => entry.kind === 'skills')) {
+    // Pi's --skill paths follow auto-discovery unless --no-skills is also set.
+    // Retain the discovered skills, put approved files first, then let Pi itself
+    // resolve names. Use its resulting winners for the daily process as well.
+    const approved = selectedResourcesOf(prepared.plan).filter(entry => entry.kind === 'skills').map(entry => {
+      const installed = prepared.inventory.find(item => item.alias === entry.package);
+      return join(packageRootFor(prepared.plan, installed), entry.path);
+    });
+    const discovered = result.commands.filter(row => row.source === 'skill').map(row => row.sourceInfo?.path).filter(Boolean);
+    result = await probeLoadedState({ ...input, args: withSkillPaths([], [...approved, ...discovered]) });
+    skillPaths = result.commands.filter(row => row.source === 'skill').map(row => row.sourceInfo?.path).filter(Boolean);
+  }
   if (!result.ok) {
     throw WardrobeError.from(
       "the revision did not start",
@@ -313,7 +348,7 @@ async function observeSelection({ prepared, env, cwd, managerAgentDir }) {
       "the selection was put back as it was; the revision and its record are unchanged"
     );
   }
-  const observed = { ...reconcileSelection({ plan: prepared.plan, commands: result.commands }), startup: summariseProbe(result) };
+  const observed = { ...selection(), ...(skillPaths ? { skillPaths } : {}), startup: summariseProbe(result) };
   const diagnostics = [];
   for (const entry of observed.missing) {
     diagnostics.push(
@@ -415,6 +450,7 @@ export async function runRevision({
   const activationText = `${JSON.stringify(activation, null, 2)}\n`;
   const startedAt = new Date().toISOString();
   const diagnostics = [...prepared.diagnostics];
+  let rollbackAgentFiles = () => {};
   let previousSettings = null;
   let observed = null;
   let outcome = null;
@@ -432,6 +468,7 @@ export async function runRevision({
     // so the lease is released however this ends.
     prepareSessionDir(sessionDir.path);
     previousSettings = readFileSync(settingsPath, "utf8");
+    rollbackAgentFiles = activateAgentFiles({ plan: prepared.plan, inventory: prepared.inventory, agentDir: revisionDir });
     writeFileSync(settingsPath, activationText);
     // A revision launches carrying the instructions it declared. The settings
     // file is not the place for them: a prompt guideline is contributed by the
@@ -483,7 +520,7 @@ export async function runRevision({
       );
     }
 
-    const childArgs = withManagerExtension(withSessionDir([...resuming.args, ...args], sessionDir));
+    const childArgs = withManagerExtension(withSessionDir(withSkillPaths([...resuming.args, ...args], observed?.skillPaths), sessionDir));
     const [spawnFile, spawnArgs] = dispatchPiCommand(prepared.cli, childArgs);
     spawnedArgv = [prepared.cli, ...childArgs];
     child = spawn(spawnFile, spawnArgs, {
@@ -508,6 +545,7 @@ export async function runRevision({
     completed = true;
   } catch (error) {
     // A launch that did not complete leaves the revision as it was installed.
+    rollbackAgentFiles();
     if (previousSettings !== null) writeFileSync(settingsPath, previousSettings);
     throw error;
   } finally {
@@ -616,6 +654,13 @@ export function withManagerExtension(args) {
   return args.includes(path) ? args : [...args, "--extension", path];
 }
 
+// Explicit --no-skills remains a caller choice. Otherwise the observed winners
+// are loaded directly, avoiding a second round of collisions in the TUI.
+function withSkillPaths(args, paths) {
+  if (!paths || args.includes('--no-skills') || args.includes('-ns')) return args;
+  return ['--no-skills', ...[...new Set(paths)].flatMap(path => ['--skill', path]), ...args];
+}
+
 /**
  * The child's argv, with the session directory made explicit.
  *
@@ -656,7 +701,6 @@ function writeLaunchSession({ revisionDir, report, plan, preset, mode }) {
         // takes the text.
         persona,
         tools: toolSelectionFor(plan),
-        model: plan.runtime?.model?.value ?? null,
         thinking: plan.runtime?.thinking?.value ?? null,
       },
       null,
@@ -718,9 +762,9 @@ function unverifiedTools({ plan, observed }) {
  * Resource roots Pi discovers outside the revision.
  *
  * Pi reads `~/.agents/skills` and any project `.agents/skills` itself, whatever
- * agent directory it was given. The manager neither copies nor suppresses
- * them, so it names them: a launch that quietly inherited a user's personal
- * skills would be hiding the one thing this process is meant to make visible.
+ * agent directory it was given. The manager never edits or copies them and
+ * names their roots. Approved skills take precedence over same-name external
+ * skills; non-conflicting external skills remain available.
  */
 export function externalResourceRoots({ env = {}, cwd = process.cwd() } = {}) {
   const home = env.HOME ?? homedir();

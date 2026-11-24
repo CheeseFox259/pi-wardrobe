@@ -7,6 +7,16 @@
 // needs a credential or a network.
 
 import assert from "node:assert/strict";
+import { computeSoftRestorePlan } from "../packages/wardrobe/src/reconcile.mjs";
+
+test("legacy Wardrobe branch entries cannot restore or change Pi's model", () => {
+  const restore = computeSoftRestorePlan({
+    desired: { tools: ["read"], model: { provider: "old", id: "forced" }, persona: [] },
+    runtime: { tools: ["read"], model: { provider: "pi", id: "chosen" }, persona: [] },
+  });
+  assert.equal(restore.hasChanges, false);
+  assert.equal(Object.hasOwn(restore, "model"), false);
+});
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

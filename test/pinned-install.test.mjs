@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {test} from 'node:test';
+import {runCommand} from '../packages/wardrobe/src/commands.mjs';
+import {launchEnv,useHarness} from './support/harness.mjs';
+const harness=useHarness('exact-direct-dependencies');
+test('later native installs cannot upgrade an earlier approved direct npm pin',async()=>{
+ const h=harness();
+ await h.npmPackage('pin-fixture',[{version:'1.0.0',exitCode:0},{version:'1.1.0',exitCode:0}]);
+ await h.npmPackage('pin-consumer',[{version:'1.0.0',exitCode:0,manifest:{dependencies:{'pin-fixture':'^1.1.0'}}}]);
+ const definition={schemaVersion:1,id:'exact-pins',name:'Exact Pins',version:'1.0.0',compatibility:{pi:'1.1.0'},packages:{a:{source:'npm:pin-fixture@1.0.0'},b:{source:'npm:pin-consumer@1.0.0'}}};
+ const repo=await h.gitRepo('exact-pins',[{message:'two packages',files:{'preset.json':JSON.stringify(definition)}}]);
+ const env=launchEnv(h),request='install '+repo.sourceAt(repo.commits[0]);
+ const review=await runCommand(request,{env});assert.equal(review.ok,true,JSON.stringify(review.result.error));
+ const installed=await runCommand(request+' --confirm '+review.result.plan.digest,{env});
+ assert.equal(installed.ok,true,JSON.stringify(installed.result.error));
+ const root=join(installed.result.staging.agentDir,'npm');
+ assert.equal(JSON.parse(readFileSync(join(root,'package.json'))).dependencies['pin-fixture'],'1.0.0');
+ assert.equal(JSON.parse(readFileSync(join(root,'node_modules/pin-fixture/package.json'))).version,'1.0.0');
+ assert.equal(installed.result.state,'available');
+});

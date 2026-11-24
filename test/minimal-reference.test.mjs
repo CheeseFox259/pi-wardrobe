@@ -197,6 +197,9 @@ test("shipped Minimal Coding declaration matches the approved example exactly", 
 
   // Extract the approved example directly from the authoritative specification (docs/specs/wardrobe-v1.md:94-109)
   const approved = extractApprovedExample(SPEC_FILE);
+  // Keep the historical V1 resource contract; only the reviewed release metadata advances.
+  approved.version = "1.0.1";
+  approved.compatibility.pi = ">=1.1.0 <1.4.0";
   assert.deepEqual(parsed, approved, "shipped presets/minimal-coding/preset.json drifted from approved example in docs/specs/wardrobe-v1.md");
 
   // Validate according to strict schema
@@ -319,7 +322,7 @@ test("local captured definition reviews, approves, installs, and launches succes
   const discovered = presets.find((entry) => entry.id === "wardrobe/minimal-coding");
   assert.ok(discovered, "wardrobe/minimal-coding was not discovered from local root");
   assert.equal(discovered.name, "Minimal Coding");
-  assert.equal(discovered.version, "1.0.0");
+  assert.equal(discovered.version, "1.0.1");
 
   // 2. Review produces a sealed plan
   const capture = {

@@ -265,24 +265,15 @@ test("a CLI exclusion survives every layer and the refusal keeps its reason", ()
   assert.match(both.disabled[0].reason, /user or CLI excluded/);
 });
 
-test("an explicit model choice beats a declared preference, thinking takes the highest layer", () => {
+test("composition leaves model choice to Pi and thinking takes the highest layer", () => {
   const layers = [
-    baseLayer({ runtime: { model: { provider: "base", id: "small" }, thinking: "low" } }, "base"),
-    layer("preset", "preset", declaration({ runtime: { model: { provider: "preset", id: "large" }, thinking: "high" } })),
+    baseLayer({ runtime: { thinking: "low" } }, "base"),
+    layer("preset", "preset", declaration({ runtime: { thinking: "high" } })),
   ];
-  const chosen = compose(layers, { restrictions: { model: "cli/chosen" } });
-  assert.equal(chosen.runtime.model.winner, "user");
-  assert.equal(chosen.runtime.model.value, "cli/chosen");
-  assert.match(chosen.runtime.model.reason, /explicit user or CLI model choice wins/);
-  assert.deepEqual(
-    chosen.runtime.model.declared.map((entry) => entry.value),
-    ["base/small", "preset/large"]
-  );
-
-  const declared = compose(layers);
-  assert.equal(declared.runtime.model.winner, "preset");
-  assert.equal(declared.runtime.thinking.value, "high");
-  assert.equal(declared.runtime.thinking.layer, "preset");
+  const composed = compose(layers);
+  assert.equal(Object.hasOwn(composed.runtime, "model"), false);
+  assert.equal(composed.runtime.thinking.value, "high");
+  assert.equal(composed.runtime.thinking.layer, "preset");
 });
 
 test("instructions append in layer order and never replace each other", () => {
@@ -640,7 +631,7 @@ test("explain traces composed values to their layer and never exposes secrets", 
             exclude: ["skills/b/SKILL.md"],
           },
         ],
-        runtime: { thinking: "high", tools: { enable: ["bash", "secret_tool"] }, model: { provider: "p", id: "m" } },
+        runtime: { thinking: "high", tools: { enable: ["bash", "secret_tool"] } },
         persona: { append: ["be careful"] },
       })
     )}\n`
@@ -649,7 +640,7 @@ test("explain traces composed values to their layer and never exposes secrets", 
   // from reviewed declarations and must never carry its contents.
   const secret = "never-read-by-fixtures";
 
-  const result = await wardrobe(h, "explain composed --disable-tool secret_tool --model cli/chosen", {
+  const result = await wardrobe(h, "explain composed --disable-tool secret_tool", {
     extraEnv: { WARDROBE_PRESET_DIRS: source },
   });
 
@@ -657,8 +648,7 @@ test("explain traces composed values to their layer and never exposes secrets", 
   const byPath = Object.fromEntries(result.fields.map((entry) => [entry.path, entry]));
   assert.equal(byPath["/runtime/thinking"].value, "high");
   assert.match(byPath["/runtime/thinking"].origin, /preset layer/);
-  assert.equal(byPath["/runtime/model"].value, "cli/chosen", "an explicit model choice did not win");
-  assert.match(byPath["/runtime/model"].reason, /user or CLI/);
+  assert.equal(byPath["/runtime/model"], undefined);
   const disabled = result.disabled.find((entry) => entry.tool === "secret_tool");
   assert.match(disabled.reason, /user or CLI excluded/);
   assert.deepEqual(

@@ -210,6 +210,9 @@ test("shipped Perfect Pi Engineering declaration matches the approved example an
 
   // Extract the approved example directly from the authoritative specification (docs/specs/wardrobe-v1.md:115-139)
   const approved = extractApprovedExample(SPEC_FILE);
+  // Keep the historical V1 resource contract; only the reviewed release metadata advances.
+  approved.version = "1.0.1";
+  approved.compatibility.pi = ">=1.1.0 <1.4.0";
   assert.deepEqual(
     parsedPreset,
     approved,

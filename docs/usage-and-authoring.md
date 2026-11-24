@@ -1,3 +1,5 @@
+> This is the retained V1 CLI/authoring reference. For daily native composer use, follow [the current guide](usage.zh-CN.md); for repository layout, see [the preset repository standard](preset-repository-standard.md).
+
 # Pi Wardrobe V1: Usage & Preset Authoring Guide
 
 Pi Wardrobe manages presets for the Pi CLI agent (v1.1.0). It provides reproducible preset lifecycle management: discovery, review, inactive staging, isolated process launch, idle in-session soft changes, follow and strict session resume, branch reconciliation, and owned revision removal.
@@ -41,9 +43,8 @@ Inside an interactive Pi session, `/wardrobe` provides inspection, discovery, an
 | `/wardrobe list` | Discovers available `preset.json` declarations in configured source roots; strictly read-only. |
 | `/wardrobe show <preset>` | Displays preset identity, version, source, composed layers, and resource selectors. |
 | `/wardrobe explain <preset>` | Traces every composed value to its layer and revision, reporting reasons for exclusions and proposals. |
-| `/wardrobe explain <preset> --overlay <path>` | Evaluates a soft session overlay (`tools`, `model`, `thinking`, `persona`). |
+| `/wardrobe explain <preset> --overlay <path>` | Evaluates a soft session overlay (`tools`, `thinking`, `persona`). |
 | `/wardrobe explain <preset> --disable-tool <t1,t2>` | Evaluates CLI tool restrictions; exclusions survive all layers. |
-| `/wardrobe explain <preset> --model <provider/id>` | Evaluates an explicit user model choice, which wins over declared preferences. |
 | `/wardrobe install <source>` | Discovers a source (Bare Git or npm) and creates an immutable review plan. Installs nothing. |
 | `/wardrobe install <source> --preset <path>` | Explicit preset selection when a repository contains multiple presets. |
 | `/wardrobe install <source> --confirm <digest>` | Noninteractive approval bound to the displayed plan digest. Stages resources inactive. |
@@ -81,7 +82,7 @@ wardrobe integrate disable --dir <dir>
 
 ## 3. Reference Presets Availability
 
-The repository includes two concrete reference presets under `presets/`. They are shipped as reviewable source examples and are **never automatically installed** when installing the manager:
+The repository includes three concrete presets under `presets/`. They are shipped as reviewable source examples and are **never automatically installed** when installing the manager:
 
 ### Minimal Coding (`presets/minimal-coding/`)
 - **Identity:** `wardrobe/minimal-coding`, version 1.0.0
@@ -94,6 +95,17 @@ The repository includes two concrete reference presets under `presets/`. They ar
 - **Scope:** Engineering toolchain declaring 12 curated skill families, question and questionnaire extensions, and high reasoning.
 - **Dependencies:** Pinned native packages `@aliou/pi-guardrails@0.19.0` and `@narumitw/pi-lsp@0.49.9`.
 - **Honest Unavailability:** Language server executables (LSP) and skill prerequisites not present on the host are truthfully reported as missing/unmet; they are **never auto-installed** and personal settings are never modified.
+
+---
+
+### Perfect Pi Full (`presets/perfect-pi/`)
+
+- **Identity:** `perfect-pi/full`, version 1.0.0. Complete source migration from Perfect Pi commit `2b8f450d5fa1470e6715e1528b0cab0663bf4be1`; original engineering remains the smaller option.
+- **Contents:** 46 bundled skills with companions/licenses, 11 enabled local extensions (including the ccstyle cooperation adapter), 3 local prompts, 5 agent roles, all 8 native package pins, habits, managed MCP definitions and maintenance scripts. The native processes package contributes another skill; native subagent package contributes another 3 prompts.
+- **Model ownership:** Models, providers and authentication belong to Pi. Wardrobe rejects `runtime.model`, creates no model configuration and never switches models. The Perfect Pi entry reuses the existing native Pi model/auth stores and saved selection; no new login is required. UI/resources and sessions stay revision-local. Native provider extensions are not implicitly loaded. SoL-Pi follows the active Pi model with route-scoped consent. See the [Chinese guide](usage.zh-CN.md).
+- **Nested packages:** `self: .` is installed as the pinned native repository and activated at the declaration's package subdirectory. The resource root is approved and locked.
+
+A native package can optionally declare `wardrobe.agent` in its `package.json` (not in `preset.json`). Schema 1 declares `files` with package-relative `source`, confined agent-relative `target`, and optional `mutable`/`template`; an optional `directories` array declares private MCP data directories. JSON templates support only `{{agentDir}}` and `{{node}}`. The manager records source hashes, targets, directories and typed public `settings` in the review plan. Activation creates these only on explicit launch; helpers and instructions remain locked, while configuration/habit seeds preserve existing local choices. Mutable code, credentials, escaping paths and symlinks are refused. Startup settings are defaults; supported saved local preferences survive relaunch, while package selection and declared thinking/tool constraints remain authoritative. See [ADR 0005](adr/0005-complete-presets-with-reviewed-agent-files.md).
 
 ---
 
@@ -139,10 +151,6 @@ A preset is defined by a `preset.json` file conforming to `schemaVersion: 1`:
     "tools": {
       "enable": ["read", "edit", "bash"],
       "disable": ["eval"]
-    },
-    "model": {
-      "provider": "anthropic",
-      "id": "claude-3-7-sonnet"
     }
   },
   "persona": {
@@ -200,6 +208,7 @@ Native packages are installed into an owned staging directory (`<agentDir>/wardr
 
 The standalone launcher starts Pi with `PI_CODING_AGENT_DIR` pointing to the staging directory:
 - **No Shared Package Roots:** The child process uses its own isolated package root; personal auth and user files are never copied or linked.
+- **Skill precedence:** Approved preset skills take precedence over same-name auto-discovered skills in managed launches. Pi resolves the names, non-conflicting external skills remain available, and the probe verifies the actual installed package path. Only the launched process receives the resolved skill list; personal files and other Pi/Codex entry points stay unchanged.
 - **Lease Ownership:** Launch acquires an exclusive file lease (`<agentDir>/wardrobe/leases/<revision>.json`).
   - **One Revision, One Writer:** A second attempt to run the same revision concurrently is refused with a competing writer diagnostic.
   - Stale leases (process terminated) are diagnosed and safely replaced; live work is never stolen.

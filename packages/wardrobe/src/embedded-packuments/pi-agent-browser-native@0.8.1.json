@@ -1,0 +1,134 @@
+{
+  "name": "pi-agent-browser-native",
+  "version": "0.8.1",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "extension",
+    "agent-browser",
+    "browser-automation",
+    "typescript",
+    "npm-package"
+  ],
+  "author": {
+    "url": "https://github.com/fitchmultz",
+    "name": "Mitch Fultz"
+  },
+  "license": "MIT",
+  "_id": "pi-agent-browser-native@0.8.1",
+  "maintainers": [
+    {
+      "name": "fitchmultz",
+      "email": "mitchfultz@gmail.com"
+    }
+  ],
+  "homepage": "https://github.com/fitchmultz/pi-agent-browser-native#readme",
+  "bugs": {
+    "url": "https://github.com/fitchmultz/pi-agent-browser-native/issues"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/extensions/agent-browser/index.js"
+    ]
+  },
+  "bin": {
+    "pi-agent-browser-config": "scripts/config.mjs",
+    "pi-agent-browser-doctor": "scripts/doctor.mjs"
+  },
+  "dist": {
+    "shasum": "00541b0c971ad01ec1c78755a123bf9f878b0e05",
+    "tarball": "https://registry.npmjs.org/pi-agent-browser-native/-/pi-agent-browser-native-0.8.1.tgz",
+    "fileCount": 137,
+    "integrity": "sha512-m0t6CQ5+iC6N9BdhkFnU3ycl/RNERsyP7Av4AjwMzC5T8lJPj0XQMfklwYKcC8CnDTNzeTdubXax9zz+cTc2TA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQCci+89ZRjCM2vo4hCh8/FNd6KMth2o2YSzkpOy+e9FVwIgJgOJtQAmYpJLDgwk/7vqkZ+bRJ1CQHhcCBkmp+lM/tM=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEQCIGCXl6DA8cVCJDzjnmFFNOg60ItLhvKM6D4YRADKTCcjAiBIJL2uZySw9zFiLBWJRnjJLbnBIOtZ5j4nTkVh61W4aQ==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 2667913
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "scripts": {
+    "docs": "node ./scripts/project.mjs docs",
+    "test": "node ./scripts/build.mjs && tsx --test --test-reporter=tap --test-concurrency=1 test/**/*.test.ts",
+    "build": "node ./scripts/build.mjs",
+    "doctor": "node ./scripts/doctor.mjs",
+    "verify": "node ./scripts/project.mjs verify",
+    "prepare": "node ./scripts/prepare.mjs",
+    "typecheck": "node ./scripts/project.mjs verify typecheck",
+    "check:compat": "node scripts/compat-host.mjs && npm run typecheck && npm test && node scripts/verify-package.mjs --smoke-pi",
+    "prepublishOnly": "npm run verify -- release && npm pack --dry-run",
+    "smoke:platform": "node scripts/platform-smoke.mjs",
+    "startup-profile": "node ./scripts/profile-startup.mjs",
+    "smoke:platform:all": "npm run smoke:platform:doctor && node scripts/platform-smoke.mjs run --target macos,ubuntu,windows-native",
+    "check:platform-smoke": "node --check platform-smoke.config.mjs && node --check scripts/platform-smoke.mjs && node --check scripts/platform-smoke/doctor.mjs && node --check scripts/platform-smoke/crabbox-runner.mjs && node --check scripts/platform-smoke/targets.mjs && node --check scripts/platform-smoke/artifacts.mjs && tsx --test test/platform-smoke.test.ts",
+    "smoke:platform:macos": "node scripts/platform-smoke.mjs run --target macos",
+    "smoke:platform:doctor": "node scripts/platform-smoke.mjs doctor",
+    "smoke:platform:ubuntu": "node scripts/platform-smoke.mjs run --target ubuntu",
+    "smoke:platform:ubuntu-image": "node scripts/platform-smoke/build-ubuntu-image.mjs",
+    "smoke:platform:windows-native": "node scripts/platform-smoke.mjs run --target windows-native"
+  },
+  "_npmUser": {
+    "name": "fitchmultz",
+    "email": "mitchfultz@gmail.com"
+  },
+  "repository": {
+    "url": "git+https://github.com/fitchmultz/pi-agent-browser-native.git",
+    "type": "git"
+  },
+  "_npmVersion": "11.19.0",
+  "description": "pi extension that exposes agent-browser as a native tool for browser automation",
+  "directories": {},
+  "_nodeVersion": "24.21.0",
+  "dependencies": {
+    "which": "2.0.2",
+    "path-key": "3.1.1",
+    "cross-spawn": "7.0.6"
+  },
+  "_hasShrinkwrap": false,
+  "packageManager": "npm@12.1.0",
+  "devDependencies": {
+    "tsx": "4.23.15",
+    "typebox": "1.3.34",
+    "typescript": "7.0.2",
+    "@types/node": "24.19.0",
+    "@types/which": "2.0.2",
+    "@types/cross-spawn": "6.0.6",
+    "@earendil-works/pi-ai": "0.87.1",
+    "@earendil-works/pi-tui": "0.87.1",
+    "@earendil-works/pi-coding-agent": "0.87.1"
+  },
+  "peerDependencies": {
+    "typebox": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "typebox": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "_npmOperationalInternal": {
+    "tmp": "tmp/pi-agent-browser-native_0.8.1_1790437522870_0.7667890806915716",
+    "host": "s3://npm-registry-packages-npm-production"
+  }
+}

@@ -20,6 +20,7 @@
 // mutable runtime data lives outside the locked code root — it is listed, never
 // hashed, so writing to it is not mistaken for code drift.
 
+import { fingerprintAgentFiles, packageRootFor } from "./agent-files.mjs";
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, lstatSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, statSync } from "node:fs";
 import { delimiter, dirname, join, resolve as resolvePath } from "node:path";
@@ -78,6 +79,7 @@ export const EXCLUSIONS = [
 export function configurationOf(plan) {
   return {
     identity: plan.identity,
+    ...(plan.agent ? { agent: plan.agent } : {}),
     declaration: {
       name: plan.declaration?.name ?? null,
       version: plan.declaration?.version ?? null,
@@ -88,6 +90,7 @@ export function configurationOf(plan) {
       alias: surface.alias,
       source: surface.source,
       artifact: surface.artifact ?? null,
+      ...(surface.resourceRoot ? { resourceRoot: surface.resourceRoot } : {}),
       installsCode: surface.installsCode === true,
     })),
     selectors: plan.resourceSelectors.map((selector) => ({
@@ -115,7 +118,7 @@ export function configurationOf(plan) {
  */
 export async function measureRevision({ plan, attemptDir, inventory, env }) {
   const configuration = configurationOf(plan);
-  const resources = resourceFingerprints(plan, inventory);
+  const resources = resourceFingerprints(plan, inventory, attemptDir);
   const code = codeFingerprint(attemptDir, inventory);
   const baseline = await baselineOf(env);
 
@@ -190,7 +193,7 @@ export function presentRuntimeData(attemptDir) {
 // Resources
 
 /** Content hashes for exactly the resources the plan selects. */
-function resourceFingerprints(plan, inventory) {
+function resourceFingerprints(plan, inventory, agentDir) {
   const entries = [];
   const problems = [];
   const seen = new Set();
@@ -211,7 +214,9 @@ function resourceFingerprints(plan, inventory) {
       const key = `${selector.package}:${selector.kind}:${path}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const hashed = hashResource(join(installed.installedPath, path));
+      let hashed;
+      try { hashed = hashResource(join(packageRootFor(plan, installed), path)); }
+      catch (error) { hashed = { error: error.message }; }
       if (hashed.error) {
         problems.push({ path: `/resourceSelectors/${selector.package}`, reason: hashed.error });
         continue;
@@ -225,6 +230,9 @@ function resourceFingerprints(plan, inventory) {
       });
     }
   }
+
+  try { entries.push(...fingerprintAgentFiles({ plan, inventory, agentDir })); }
+  catch (error) { problems.push({ path: "/agent/files", reason: error.message }); }
 
   return {
     entries: entries.sort((a, b) =>

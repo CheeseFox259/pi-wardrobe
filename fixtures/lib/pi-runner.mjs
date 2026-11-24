@@ -26,7 +26,7 @@ export class PiRunner {
   #env(agentName, extra) {
     return this.sandbox.childEnv({
       agentDir: this.sandbox.agentPath(agentName),
-      extra,
+      extra: { WARDROBE_PI_CLI: this.runtime.cliPath, ...extra },
     });
   }
 
@@ -64,9 +64,9 @@ export class PiRunner {
     return this.driverPath;
   }
 
-  async rpc(agentName, { sessionFile, extraArgs = [], extraEnv } = {}) {
+  async rpc(agentName, { sessionFile, extraArgs = [], extraEnv, onConfirm } = {}) {
     const driver = this.ensureDriver();
-    const args = [...RPC_BASE_ARGS, "-e", driver];
+    const args = [...RPC_BASE_ARGS, "-e", driver, ...extraArgs];
     if (sessionFile) args.push("--session", sessionFile);
     else args.push("--no-session");
     const child = this.sandbox.runner.fork(process.execPath, [this.runtime.cliPath, ...args], {
@@ -77,6 +77,7 @@ export class PiRunner {
       agentName,
       agentDir: this.sandbox.agentPath(agentName),
       eventsLog: this.sandbox.extensionLog,
+      onConfirm,
     });
     // Extensions load asynchronously after startup. Without this handshake the
     // first request can arrive before they are registered, and a command sent
@@ -96,12 +97,13 @@ export class RpcSession {
   #exited;
   #eventOffset = 0;
 
-  constructor(child, runner, { agentName, agentDir, eventsLog }) {
+  constructor(child, runner, { agentName, agentDir, eventsLog, onConfirm }) {
     this.#child = child;
     this.#runner = runner;
     this.agentName = agentName;
     this.agentDir = agentDir;
     this.eventsLog = eventsLog;
+    this.onConfirm = onConfirm;
     // The log is shared by every session in one harness; a session only owns
     // the events appended after it started.
     this.#eventOffset = readJsonl(eventsLog).length;
@@ -136,6 +138,10 @@ export class RpcSession {
         continue;
       }
       const waiter = this.#pending.get(row.id);
+      if (row.type === "extension_ui_request" && row.method === "confirm" && this.onConfirm) {
+        const confirmed = this.onConfirm(row) === true;
+        this.#child.stdin.write(`${JSON.stringify({type:"extension_ui_response",id:row.id,confirmed})}\n`);
+      }
       if (row.type === "response" && waiter) {
         this.#pending.delete(row.id);
         waiter.resolve(row);
@@ -257,7 +263,8 @@ const localModel = {
   thinkingLevelMap: { off: null, low: "low", medium: "medium", high: "high", xhigh: null, max: null },
 };
 
-const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
+const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 
 /**
  * The text of a message, whichever shape it arrives in.

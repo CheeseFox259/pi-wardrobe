@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 2,
+  "piVersion": "1.3.0",
+  "skillInstaller": "skills@1.7.0",
+  "managedSettings": {
+    "theme": "dark",
+    "defaultThinkingLevel": "high",
+    "tuiMode": "fullscreen",
+    "quietStartup": "header",
+    "compaction": {
+      "enabled": true,
+      "reserveTokens": 16384,
+      "keepRecentTokens": 20000
+    },
+    "enableSkillCommands": true
+  },
+  "defaultSettings": {
+    "defaultTools": [
+      "+codemode"
+    ]
+  },
+  "solPi": {
+    "source": "git:github.com/CheeseFox259/SoL-Pi@93fd67a833da1b6236cf2582f02f7a6454d6d941",
+    "pinnedRef": "93fd67a833da1b6236cf2582f02f7a6454d6d941",
+    "reducerPolicy": {
+      "maxRequestsPerSession": 20
+    }
+  },
+  "packages": [
+    {
+      "source": "git:github.com/CheeseFox259/SoL-Pi@93fd67a833da1b6236cf2582f02f7a6454d6d941",
+      "extensions": [],
+      "capabilities": [
+        "observation-pack",
+        "action-fusion",
+        "log-reducer",
+        "online-compaction"
+      ]
+    },
+    {
+      "source": "npm:pi-web-access@0.37.0",
+      "capabilities": [
+        "research",
+        "fetch"
+      ]
+    },
+    {
+      "source": "npm:pi-matt-subagent@0.9.0",
+      "capabilities": [
+        "parallel-agents",
+        "background-research",
+        "review"
+      ]
+    },
+    {
+      "source": "npm:pi-agent-browser-native@0.9.3",
+      "capabilities": [
+        "browser-verification"
+      ]
+    },
+    {
+      "source": "npm:@narumitw/pi-lsp@0.49.9",
+      "capabilities": [
+        "diagnostics",
+        "source-fixes"
+      ]
+    },
+    {
+      "source": "npm:@aliou/pi-processes@0.13.2",
+      "capabilities": [
+        "dev-server",
+        "logs"
+      ]
+    },
+    {
+      "source": "npm:@aliou/pi-guardrails@0.19.0",
+      "capabilities": [
+        "deterministic-guardrails"
+      ]
+    },
+    {
+      "source": "npm:@narumitw/pi-statusline@0.50.2",
+      "capabilities": [
+        "statusline",
+        "context-usage",
+        "token-cost-display"
+      ]
+    }
+  ],
+  "mcpDefaults": {
+    "ask-user-questions": {
+      "enabled": false
+    },
+    "MiniMax": {
+      "enabled": false
+    }
+  },
+  "mcpServers": {
+    "codebase-memory": {
+      "package": "codebase-memory-mcp@0.11.0",
+      "dataEnv": "CBM_CACHE_DIR",
+      "description": "Local code graph: index repositories, search symbols, trace calls, inspect architecture and index coverage. Verify graph findings against source; no ADR writes or project deletion.",
+      "tools": [
+        "index_repository",
+        "search_graph",
+        "query_graph",
+        "trace_path",
+        "get_code_snippet",
+        "get_file_outline",
+        "get_graph_schema",
+        "compare_graphs",
+        "get_architecture",
+        "search_code",
+        "list_projects",
+        "index_status",
+        "check_index_coverage",
+        "detect_changes"
+      ]
+    },
+    "context-mode": {
+      "package": "context-mode@1.0.169",
+      "dataEnv": "CONTEXT_MODE_DIR",
+      "description": "Local document FTS5 indexing and BM25 retrieval via ctx_index/ctx_search. Stats describe this server only; no arbitrary execution, web fetch, lifecycle hooks or automatic Pi session memory.",
+      "tools": [
+        "ctx_index",
+        "ctx_search",
+        "ctx_stats"
+      ]
+    }
+  },
+  "skillPolicy": {
+    "excludeFromPi": [
+      "archify",
+      "archify-review",
+      "emil-design-eng",
+      "find-skills",
+      "mmx-cli",
+      "ui-ux-pro-max",
+      "codex-handoff",
+      "tabbit",
+      "chief-of-staff"
+    ],
+    "shadowedOverrides": [
+      "ask-matt",
+      "claude-handoff",
+      "code-review",
+      "codebase-design",
+      "git-guardrails-claude-code",
+      "grill-me",
+      "grill-with-docs",
+      "grilling",
+      "handoff",
+      "implement",
+      "implement-spec",
+      "improve-codebase-architecture",
+      "loop-me",
+      "prototype",
+      "research",
+      "resolving-merge-conflicts",
+      "retro",
+      "setup-matt-pocock-skills",
+      "setup-ts-deep-modules",
+      "skill-creator",
+      "tdd",
+      "teach",
+      "to-questionnaire",
+      "to-spec",
+      "to-tickets",
+      "triage",
+      "wayfinder",
+      "web-design-guidelines",
+      "writing-beats",
+      "writing-for-agents",
+      "writing-fragments",
+      "writing-shape",
+      "diagnosing-bugs",
+      "domain-modeling",
+      "wizard",
+      "wait-what",
+      "pr",
+      "migrate-to-shoehorn",
+      "scaffold-exercises",
+      "setup-pre-commit",
+      "frontend-design",
+      "vercel-react-best-practices"
+    ]
+  },
+  "skills": [
+    {
+      "source": "mattpocock/skills",
+      "ref": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "selection": "all",
+      "requiredSkills": [
+        "ask-matt",
+        "code-review",
+        "codebase-design",
+        "diagnosing-bugs",
+        "domain-modeling",
+        "grill-with-docs",
+        "implement",
+        "improve-codebase-architecture",
+        "prototype",
+        "research",
+        "resolving-merge-conflicts",
+        "setup-matt-pocock-skills",
+        "tdd",
+        "to-spec",
+        "to-tickets",
+        "triage",
+        "wayfinder",
+        "wizard",
+        "grill-me",
+        "grilling",
+        "handoff",
+        "teach",
+        "to-questionnaire",
+        "wait-what",
+        "writing-for-agents",
+        "claude-handoff",
+        "implement-spec",
+        "loop-me",
+        "pr",
+        "retro",
+        "setup-ts-deep-modules",
+        "writing-beats",
+        "writing-fragments",
+        "writing-shape",
+        "git-guardrails-claude-code",
+        "migrate-to-shoehorn",
+        "scaffold-exercises",
+        "setup-pre-commit"
+      ],
+      "scope": "global"
+    },
+    {
+      "source": "anthropics/skills",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "selection": [
+        "frontend-design",
+        "skill-creator"
+      ],
+      "scope": "global",
+      "status": "skill-creator uses the local Pi evaluation override"
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "ref": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "selection": [
+        "vercel-react-best-practices",
+        "web-design-guidelines"
+      ],
+      "scope": "global"
+    },
+    {
+      "source": "local:route",
+      "scope": "local"
+    },
+    {
+      "source": "local:verify-product",
+      "scope": "local"
+    },
+    {
+      "source": "local:project-architecture",
+      "scope": "local"
+    },
+    {
+      "source": "local:grilling",
+      "scope": "local"
+    },
+    {
+      "source": "local:maintain",
+      "scope": "local"
+    },
+    {
+      "source": "local:update",
+      "scope": "local"
+    }
+  ]
+}

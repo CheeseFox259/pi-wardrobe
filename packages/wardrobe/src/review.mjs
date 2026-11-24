@@ -5,6 +5,7 @@
 // composed preset would load. It never installs, and never imports package
 // code.
 
+import { combineAgentFiles, reviewAgentFiles } from "./agent-files.mjs";
 import { dirname, join } from "node:path";
 import { compose, classifyChange, describeLayer, executableIdentity } from "./compose.mjs";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
@@ -94,6 +95,7 @@ export async function planFor(options) {
         alias: entry.alias,
         entry: declaration,
         captured: layer.captured,
+        preset: layer.preset,
         registry: options.registry,
         env: options.env,
         fetchImpl: options.fetchImpl,
@@ -118,6 +120,7 @@ export async function planFor(options) {
     },
     layers: layers.map(describeLayer),
     packages,
+    agent: combineAgentFiles(packages.map(entry => entry.agent)),
     resources: composed.resources,
     runtime: composed.runtime,
     persona: composed.persona,
@@ -134,7 +137,7 @@ export async function planFor(options) {
  * `.` resolves to the pinned native source of the package the declaration came
  * from — never to a local path, which would misrepresent loading as installing.
  */
-async function resolvePackageSource({ alias, entry, captured, registry, env, fetchImpl }) {
+async function resolvePackageSource({ alias, entry, captured, preset, registry, env, fetchImpl }) {
   const parsed = parseSource(entry.source, `/packages/${alias}/source`);
 
   if (parsed.kind === "self") {
@@ -145,9 +148,11 @@ async function resolvePackageSource({ alias, entry, captured, registry, env, fet
         : null;
     return {
       alias,
+      agent: reviewAgentFiles({ captured, alias, resourceRoot: dirname(preset.path) === "." ? "" : dirname(preset.path) }),
       source: entry.source,
       resolvesTo: pinnedGit ?? captured.locator,
       artifact: artifactOfCapture(captured),
+      ...(dirname(preset.path) === "." ? {} : { resourceRoot: dirname(preset.path) }),
       hasInstallScript: captured.hasInstallScript === true,
     };
   }

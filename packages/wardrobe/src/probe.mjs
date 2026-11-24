@@ -12,6 +12,8 @@
 // registers no command, a theme — it says so rather than reporting absence.
 
 import { spawn } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { dispatchPiCommand } from "./proc.mjs";
 
 /** How long a probe may take before it is treated as a failed startup. */
@@ -36,8 +38,8 @@ export async function probeLoadedState({
   args = [],
 }) {
   // `--mode rpc` speaks the protocol on stdio; `--no-session` keeps the probe
-  // from writing a session of its own. No resource flags: the point is to see
-  // what the revision's own settings cause Pi to load.
+  // from writing a session of its own. Callers may provide explicit skill paths
+  // to resolve collisions; the default observes the revision's own settings.
   const probeArgs = ["--mode", "rpc", "--no-session", "--session-dir", sessionDir, ...args];
   const [spawnFile, spawnArgs] = dispatchPiCommand(cli, probeArgs);
   const child = spawn(
@@ -176,14 +178,18 @@ function delay(ms) {
  * rather than as missing — the difference matters, because "not there" is a
  * claim and "not visible from here" is not.
  */
-export function reconcileSelection({ plan, commands }) {
+export function reconcileSelection({ plan, commands, resourceRoots = {} }) {
   const selected = selectedResourcesOf(plan);
   const observable = selected.filter((entry) => OBSERVABLE_KINDS.has(entry.kind));
   const unobservable = selected.filter((entry) => !OBSERVABLE_KINDS.has(entry.kind));
 
   const pathOf = (command) => command.sourceInfo?.path ?? null;
+  const matches = (entry, path) => {
+    const root = resourceRoots[entry.package];
+    return typeof path === 'string' && Boolean(root) && canonicalPath(path) === canonicalPath(resolve(root, entry.path));
+  };
   const missing = observable.filter(
-    (entry) => !commands.some((command) => endsWith(pathOf(command), entry.path))
+    (entry) => !commands.some((command) => matches(entry, pathOf(command)))
   );
 
   const byName = new Map();
@@ -206,7 +212,7 @@ export function reconcileSelection({ plan, commands }) {
   // A positive observation for the rest: did anything come from that file?
   const loadedPaths = new Set(commands.map(pathOf).filter(Boolean));
   const loaded = unobservable.filter((entry) =>
-    [...loadedPaths].some((path) => endsWith(path, entry.path))
+    [...loadedPaths].some((path) => matches(entry, path))
   );
 
   return {
@@ -219,8 +225,9 @@ export function reconcileSelection({ plan, commands }) {
   };
 }
 
-function endsWith(path, suffix) {
-  return typeof path === "string" && (path === suffix || path.endsWith(`/${suffix}`));
+function canonicalPath(path) {
+  try { return realpathSync(path); }
+  catch { return resolve(path); }
 }
 
 /** Every resource the approved plan selected, as package-relative paths. */

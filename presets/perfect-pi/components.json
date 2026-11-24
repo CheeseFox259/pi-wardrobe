@@ -1,0 +1,695 @@
+{
+  "version": "1.0.0",
+  "description": "Registry of local overrides, custom skills, and managed extensions in Perfect Pi",
+  "upstreams": {
+    "mattpocock/skills": {
+      "repo": "https://github.com/mattpocock/skills.git",
+      "pinnedRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "description": "Matt Pocock engineering methodology kernel (design tree, tdd, code review, etc.)"
+    },
+    "anthropics/skills": {
+      "repo": "https://github.com/anthropics/skills.git",
+      "pinnedRef": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "description": "Anthropic official reference skills (frontend design, etc.)"
+    },
+    "vercel-labs/agent-skills": {
+      "repo": "https://github.com/vercel-labs/agent-skills.git",
+      "pinnedRef": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "description": "Vercel web interface guidelines and React performance skills"
+    },
+    "NVlabs/SoL-Pi": {
+      "repo": "https://github.com/CheeseFox259/SoL-Pi.git",
+      "upstreamRepo": "https://github.com/NVlabs/SoL-Pi.git",
+      "pinnedRef": "93fd67a833da1b6236cf2582f02f7a6454d6d941",
+      "upstreamRef": "219568034fa54ed121ede80961655e33dfb9d0e3",
+      "integration": "vendored-three-way-adapter",
+      "compatibilityTarget": "pi-1.3.0",
+      "description": "NVIDIA SoL-Pi efficiency extension suite (fork with OCC bug fixes: stale horizon, progress loss, prefix bounds)",
+      "localPath": "vendor/sol-pi",
+      "mergeBase": "e1a586af0ad8956f42ae5b26bba20e48fbf30e00",
+      "preservedFeatures": [
+        "Native guarded bash for then_run",
+        "Native current model and authentication",
+        "Session reducer consent and request budget",
+        "Workflow phase durability gates",
+        "1000-token economic floor, progress summaries, horizon reset and removable-prefix bound"
+      ]
+    }
+  },
+  "skills": {
+    "ask-matt": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/ask-matt/SKILL.md",
+      "upstreamRelPath": "skills/engineering/ask-matt/SKILL.md",
+      "preservedFeatures": [
+        "Workflow selection",
+        "Pi command names and execution semantics"
+      ]
+    },
+    "claude-handoff": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/claude-handoff/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/claude-handoff/SKILL.md",
+      "preservedFeatures": [
+        "Legacy command alias",
+        "Pi handoff and blocking delegation"
+      ]
+    },
+    "code-review": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/code-review/SKILL.md",
+      "upstreamRelPath": "skills/engineering/code-review/SKILL.md",
+      "preservedFeatures": [
+        "Independent Standards and Spec axes",
+        "Working-tree, committed and snapshot modes",
+        "Untracked file review"
+      ]
+    },
+    "codebase-design": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/codebase-design/SKILL.md",
+      "upstreamRelPath": "skills/engineering/codebase-design/SKILL.md",
+      "preservedFeatures": [
+        "Deep module vocabulary",
+        "Blocking design exploration and questionnaire decisions"
+      ]
+    },
+    "git-guardrails-claude-code": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/git-guardrails-claude-code/SKILL.md",
+      "upstreamRelPath": "skills/misc/git-guardrails-claude-code/SKILL.md",
+      "preservedFeatures": [
+        "Legacy command alias",
+        "Native Pi guardrails configuration",
+        "Non-executing policy verification"
+      ]
+    },
+    "grill-me": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/grill-me/SKILL.md",
+      "upstreamRelPath": "skills/productivity/grill-me/SKILL.md",
+      "preservedFeatures": [
+        "Pi skill loading",
+        "Interactive grilling"
+      ]
+    },
+    "grill-with-docs": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/grill-with-docs/SKILL.md",
+      "upstreamRelPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "preservedFeatures": [
+        "Grilling and domain modeling",
+        "Pi skill loading and questionnaire"
+      ]
+    },
+    "handoff": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/handoff/SKILL.md",
+      "upstreamRelPath": "skills/productivity/handoff/SKILL.md",
+      "preservedFeatures": [
+        "Context pointers",
+        "Pi session continuation",
+        "Authorization and verification record"
+      ]
+    },
+    "implement": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/implement/SKILL.md",
+      "upstreamRelPath": "skills/engineering/implement/SKILL.md",
+      "preservedFeatures": [
+        "TDD at agreed seams",
+        "Working-tree review before commit",
+        "Preservation of pre-existing changes"
+      ]
+    },
+    "improve-codebase-architecture": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/improve-codebase-architecture/SKILL.md",
+      "upstreamRelPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "preservedFeatures": [
+        "Deepening opportunities and HTML report",
+        "Pi subagent and questionnaire"
+      ]
+    },
+    "loop-me": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/loop-me/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/loop-me/SKILL.md",
+      "preservedFeatures": [
+        "Durable workflow specs",
+        "Pi questionnaire"
+      ]
+    },
+    "prototype": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/prototype/SKILL.md",
+      "upstreamRelPath": "skills/engineering/prototype/SKILL.md",
+      "preservedFeatures": [
+        "UI and logic variants",
+        "Managed processes and browser verification"
+      ]
+    },
+    "research": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/research/SKILL.md",
+      "upstreamRelPath": "skills/engineering/research/SKILL.md",
+      "preservedFeatures": [
+        "Primary source evidence",
+        "Native background research tool"
+      ]
+    },
+    "retro": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/retro/SKILL.md",
+      "upstreamRelPath": "skills/engineering/retro/SKILL.md",
+      "preservedFeatures": [
+        "Session retrospective",
+        "Pi resources and AGENTS.md"
+      ]
+    },
+    "resolving-merge-conflicts": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "localPath": "skills/resolving-merge-conflicts/SKILL.md",
+      "upstreamRelPath": "skills/engineering/resolving-merge-conflicts/SKILL.md",
+      "description": "Retired upstream in v1.3 (d81f3a1) and kept as a local override; its baseRef stays at the last commit that carried the file",
+      "preservedFeatures": [
+        "Verbatim upstream body from c55ee46",
+        "No upstream file remains to reconcile against"
+      ]
+    },
+    "setup-ts-deep-modules": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/setup-ts-deep-modules/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/setup-ts-deep-modules/SKILL.md",
+      "preservedFeatures": [
+        "Dependency-cruiser rules",
+        "Pi skill loading and context pointers"
+      ]
+    },
+    "skill-creator": {
+      "type": "override",
+      "upstream": "anthropics/skills",
+      "baseRef": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "localPath": "skills/skill-creator/SKILL.md",
+      "upstreamRelPath": "skills/skill-creator/SKILL.md",
+      "preservedFeatures": [
+        "Author/evaluate/improve cycle",
+        "Pi CLI evaluation with read-only tools",
+        "Provider errors distinct from negative triggers"
+      ]
+    },
+    "tdd": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/tdd/SKILL.md",
+      "upstreamRelPath": "skills/engineering/tdd/SKILL.md",
+      "preservedFeatures": [
+        "Red-green-refactor",
+        "Pi skill loading and seam decisions"
+      ]
+    },
+    "teach": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/teach/SKILL.md",
+      "upstreamRelPath": "skills/productivity/teach/SKILL.md",
+      "preservedFeatures": [
+        "Teaching workspace",
+        "Pi questionnaire, research and browser"
+      ]
+    },
+    "to-questionnaire": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/to-questionnaire/SKILL.md",
+      "upstreamRelPath": "skills/productivity/to-questionnaire/SKILL.md",
+      "preservedFeatures": [
+        "Discovery questionnaire artifact",
+        "Pi clarification UI"
+      ]
+    },
+    "triage": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/triage/SKILL.md",
+      "upstreamRelPath": "skills/engineering/triage/SKILL.md",
+      "preservedFeatures": [
+        "Readiness roles separate from execution",
+        "Pi interview and tracker authorization"
+      ]
+    },
+    "wayfinder": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/wayfinder/SKILL.md",
+      "upstreamRelPath": "skills/engineering/wayfinder/SKILL.md",
+      "preservedFeatures": [
+        "Durable decision map",
+        "Background research and interactive frontier",
+        "Decision state separate from execution"
+      ]
+    },
+    "web-design-guidelines": {
+      "type": "override",
+      "upstream": "vercel-labs/agent-skills",
+      "baseRef": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "localPath": "skills/web-design-guidelines/SKILL.md",
+      "upstreamRelPath": "skills/web-design-guidelines/SKILL.md",
+      "preservedFeatures": [
+        "Upstream interface guidelines",
+        "Native fetch_content and agent_browser"
+      ]
+    },
+    "writing-beats": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/writing-beats/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/writing-beats/SKILL.md",
+      "preservedFeatures": [
+        "Beat assembly",
+        "Pi question UI"
+      ]
+    },
+    "writing-for-agents": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/writing-for-agents/SKILL.md",
+      "upstreamRelPath": "skills/productivity/writing-for-agents/SKILL.md",
+      "preservedFeatures": [
+        "Writing conventions",
+        "Pi skill mechanics and AGENTS.md"
+      ]
+    },
+    "writing-fragments": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/writing-fragments/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/writing-fragments/SKILL.md",
+      "preservedFeatures": [
+        "Fragment exploration",
+        "Pi command names"
+      ]
+    },
+    "writing-shape": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/writing-shape/SKILL.md",
+      "upstreamRelPath": "skills/in-progress/writing-shape/SKILL.md",
+      "preservedFeatures": [
+        "Paragraph shaping",
+        "Pi question UI"
+      ]
+    },
+    "grilling": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/grilling/SKILL.md",
+      "upstreamRelPath": "skills/productivity/grilling/SKILL.md",
+      "description": "Enhanced Matt Pocock grilling with interactive TUI questionnaire dispatch and 'e' amend key",
+      "preservedFeatures": [
+        "Interactive TUI questionnaire dispatch",
+        "Key hint 'e' to amend/supplement",
+        "Recommended answer labeling",
+        "Non-interactive fallback"
+      ]
+    },
+    "route": {
+      "type": "custom",
+      "localPath": "skills/route/SKILL.md",
+      "description": "Deterministic workflow router directing tasks to Matt Pocock or verification skills"
+    },
+    "implement-spec": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/implement-spec/SKILL.md",
+      "upstreamRelPath": "skills/engineering/implement-spec/SKILL.md",
+      "description": "Ticket-graph implementation remapped from Claude Code subagents to Pi's blocking subagent tool, explicit git worktrees, and an optional gh PR",
+      "preservedFeatures": [
+        "Spec and ticket task graph with frontier-driven batching",
+        "One worktree and branch per ticket",
+        "Exploration subagent notes written outside the repo",
+        "Code review and fix pass on the integration branch",
+        "Worktree cleanup after merge"
+      ],
+      "customizations": [
+        "Subagent execution semantics section: Pi subagent is blocking, batch the frontier into one tasks call",
+        "research tool is the only genuinely background dispatch",
+        "Explicit git worktree add/remove instead of an assumed per-agent sandbox",
+        "gh PR step degraded to optional with branch-as-integration-point fallback",
+        "Skill references read from ~/.pi/agent/skills instead of a Skill tool"
+      ]
+    },
+    "setup-matt-pocock-skills": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/setup-matt-pocock-skills/SKILL.md",
+      "upstreamRelPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "description": "Per-repo tracker/triage/domain setup with local markdown as the recommended tracker and the .scratch/ contract inlined",
+      "preservedFeatures": [
+        "Explore, present, confirm, write, done sequence",
+        "GitHub, GitLab, local markdown and freeform tracker options",
+        "Five canonical triage label roles",
+        "Single-context vs multi-context domain doc layout",
+        "AGENTS.md entry with pointers to existing project guidance"
+      ],
+      "customizations": [
+        "Section A recommends local markdown .scratch/ instead of GitHub",
+        "Section B pre-resolved: Perfect Pi always ships triage, so labels are always written",
+        "Local-markdown tracker contract inlined instead of read from a sibling template",
+        "Implementation-ticket fields separate triage from execution and define failure recovery",
+        "Bundled GitHub and GitLab templates share a versioned local execution ledger",
+        "Sections presented through the Pi questionnaire tool with markdown fallback",
+        "Closing step advertises only the Pi-adapted implementation ladder"
+      ]
+    },
+    "to-spec": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/to-spec/SKILL.md",
+      "upstreamRelPath": "skills/engineering/to-spec/SKILL.md",
+      "description": "Concise durable specs for deferred or delegated work with explicit acceptance and testing decisions",
+      "preservedFeatures": [
+        "Codebase and domain-context exploration",
+        "Highest practical testing seam",
+        "Tracker publication and ready-for-agent gating"
+      ],
+      "customizations": [
+        "Concise sections replace padded user-story requirements",
+        "Headless seam approval remains an explicit stop",
+        "Local specs must be committed before worktree dispatch",
+        "Unresolved questions prevent ready-for-agent status"
+      ]
+    },
+    "to-tickets": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "upstreamRepo": "https://github.com/mattpocock/skills.git",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/to-tickets/SKILL.md",
+      "upstreamRelPath": "skills/engineering/to-tickets/SKILL.md",
+      "description": "Dependency-checked vertical-slice tickets with explicit triage, execution and verification fields",
+      "preservedFeatures": [
+        "Tracer-bullet vertical slices",
+        "Blocking edges",
+        "Wide-refactor expand/migrate/contract exception",
+        "User approval before publication"
+      ],
+      "customizations": [
+        "Plain metadata lines replace ambiguous bold Markdown keys",
+        "Execution state is separate from triage role",
+        "Graph cycles and missing edges are rejected",
+        "Approved local artifacts are committed before worktrees are created"
+      ]
+    },
+    "verify-product": {
+      "type": "custom",
+      "localPath": "skills/verify-product/SKILL.md",
+      "description": "3-tier evidence verification methodology (Tier 0 direct, Tier 1 engineering, Tier 2 browser/runtime)"
+    },
+    "project-architecture": {
+      "type": "custom",
+      "localPath": "skills/project-architecture/SKILL.md",
+      "description": "Architecture constraints, domain boundary, and ADR compliance enforcement"
+    },
+    "maintain": {
+      "type": "custom",
+      "localPath": "skills/maintain/SKILL.md",
+      "description": "Requested bug fixes and capability additions only"
+    },
+    "diagnosing-bugs": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/diagnosing-bugs/SKILL.md",
+      "upstreamRelPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "domain-modeling": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/domain-modeling/SKILL.md",
+      "upstreamRelPath": "skills/engineering/domain-modeling/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "wizard": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/wizard/SKILL.md",
+      "upstreamRelPath": "skills/engineering/wizard/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "wait-what": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/wait-what/SKILL.md",
+      "upstreamRelPath": "skills/productivity/wait-what/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "pr": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/pr/SKILL.md",
+      "upstreamRelPath": "skills/engineering/pr/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "migrate-to-shoehorn": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/migrate-to-shoehorn/SKILL.md",
+      "upstreamRelPath": "skills/misc/migrate-to-shoehorn/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "scaffold-exercises": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/scaffold-exercises/SKILL.md",
+      "upstreamRelPath": "skills/misc/scaffold-exercises/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "setup-pre-commit": {
+      "type": "override",
+      "upstream": "mattpocock/skills",
+      "baseRef": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "localPath": "skills/setup-pre-commit/SKILL.md",
+      "upstreamRelPath": "skills/misc/setup-pre-commit/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "frontend-design": {
+      "type": "override",
+      "upstream": "anthropics/skills",
+      "baseRef": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "localPath": "skills/frontend-design/SKILL.md",
+      "upstreamRelPath": "skills/frontend-design/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "vercel-react-best-practices": {
+      "type": "override",
+      "upstream": "vercel-labs/agent-skills",
+      "baseRef": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "localPath": "skills/vercel-react-best-practices/SKILL.md",
+      "upstreamRelPath": "skills/react-best-practices/SKILL.md",
+      "preservedFeatures": [
+        "Existing local workflow and Pi execution semantics",
+        "All local companion files"
+      ]
+    },
+    "update": {
+      "type": "custom",
+      "localPath": "skills/update/SKILL.md",
+      "description": "Incremental upstream update and capability adoption"
+    }
+  },
+  "agents": {
+    "implementer": {
+      "type": "custom",
+      "localPath": "global/agents/implementer.md",
+      "description": "Worktree-scoped ticket implementer governed by subagent-policy"
+    },
+    "reviewer": {
+      "type": "custom",
+      "localPath": "global/agents/reviewer.md",
+      "description": "Code review specialist pinned to default model cpa/gemini-3.8-flash-high"
+    },
+    "worker": {
+      "type": "custom",
+      "localPath": "global/agents/worker.md",
+      "description": "General-purpose subagent pinned to default model cpa/gemini-3.8-flash-high"
+    },
+    "planner": {
+      "type": "custom",
+      "localPath": "global/agents/planner.md",
+      "description": "Planning specialist pinned to default model cpa/gemini-3.8-flash-high"
+    },
+    "scout": {
+      "type": "custom",
+      "localPath": "global/agents/scout.md",
+      "description": "Recon scout pinned to default model cpa/gemini-3.8-flash-high"
+    }
+  },
+  "packages": {
+    "sol-pi": {
+      "type": "upstream-adapted",
+      "repo": "https://github.com/NVlabs/SoL-Pi.git",
+      "pinnedRef": "e1a586af0ad8956f42ae5b26bba20e48fbf30e00",
+      "localPath": "global/extensions/sol-pi.ts",
+      "description": "Standalone upstream package loaded through a guarded Perfect Pi adapter; original package extension is filtered out",
+      "preservedFeatures": [
+        "Exact observation recall",
+        "Native online compaction opt-in",
+        "Evidence-checked log reduction"
+      ],
+      "adaptations": [
+        "Guarded nested bash for fused validation",
+        "Pi 1.0 error outcomes",
+        "Authorized reducer route and usage accounting",
+        "Recall availability checks"
+      ]
+    }
+  },
+  "mcpServers": {
+    "codebase-memory": {
+      "type": "upstream-adapted",
+      "repo": "https://github.com/DeusData/codebase-memory-mcp",
+      "manifestPath": "mcpServers.codebase-memory",
+      "localPath": "scripts/managed-mcp.mjs",
+      "description": "Pinned MCP-only code graph with source/coverage verification; mutating ADR, project deletion and trace ingestion tools hidden"
+    },
+    "context-mode": {
+      "type": "upstream-adapted",
+      "repo": "https://github.com/mksglu/context-mode",
+      "manifestPath": "mcpServers.context-mode",
+      "localPath": "scripts/managed-mcp.mjs",
+      "description": "Pinned MCP-only local FTS5 retrieval; arbitrary execution, network fetch, upgrade/purge/insight and native Pi lifecycle adapter intentionally disabled"
+    }
+  },
+  "extensions": {
+    "sol-pi": {
+      "type": "custom",
+      "localPath": "global/extensions/sol-pi.ts",
+      "description": "Managed SoL-Pi integration, safe fusion, exact recall, accounted reducer, optional native compaction"
+    },
+    "question": {
+      "type": "custom",
+      "localPath": "global/extensions/question.ts",
+      "description": "Single-question TUI selector with inline editor and 'e' amend support"
+    },
+    "questionnaire": {
+      "type": "custom",
+      "localPath": "global/extensions/questionnaire.ts",
+      "description": "Multi-question tabbed TUI selector with batch submission and 'e' amend support"
+    },
+    "command-palette": {
+      "type": "custom",
+      "localPath": "global/extensions/command-palette.ts",
+      "description": "Ctrl+Shift+P quick launcher for native model picker, route, grill, verify, and maintain"
+    },
+    "tools": {
+      "type": "custom",
+      "localPath": "global/extensions/tools.ts",
+      "description": "Interactive tool toggle manager"
+    },
+    "subagent-policy": {
+      "type": "custom",
+      "localPath": "global/extensions/subagent-policy.ts",
+      "description": "Enforce a session-scoped model allowlist and default thinking level for subagent and research children"
+    },
+    "tmux-supervisor": {
+      "type": "custom",
+      "localPath": "global/extensions/tmux-supervisor.ts",
+      "description": "Supervise spec ticket execution across parallel tmux sessions with a live observability dashboard"
+    },
+    "structured-output": {
+      "type": "custom",
+      "localPath": "global/extensions/structured-output.ts",
+      "description": "Structured JSON output terminator"
+    },
+    "model-habits": {
+      "type": "custom",
+      "localPath": "global/extensions/model-habits.ts",
+      "description": "Per-model habit correction prompts loaded dynamically via before_agent_start into rules, with model ID normalization and fallback chain"
+    }
+  }
+}

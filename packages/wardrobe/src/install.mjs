@@ -12,7 +12,7 @@
 // back — Pi's install runs package scripts, and this manager does not pretend
 // otherwise.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { constants, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
 import { parseSource } from "./identity.mjs";
@@ -31,7 +31,7 @@ import { StagingStore, inactiveSettings, residualOf } from "./staging.mjs";
  * @returns {Promise<{state: string, record: object, attempt: object|null,
  *   alreadyAvailable: boolean}>}
  */
-export async function installApprovedPlan({ plan, agentDir, env, registry, fetchImpl }) {
+export async function installApprovedPlan({ plan, agentDir, env, registry, fetchImpl, onProgress, reuseNpm = null }) {
   assertApprovedPlan(plan);
   await verifyArtifacts(plan, { registry, fetchImpl });
 
@@ -79,11 +79,14 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
     `${JSON.stringify(inactiveSettings(surfaces), null, 2)}\n`
   );
 
+  if(reuseNpm)cpSync(join(reuseNpm,'npm'),join(attemptDir,'npm'),{recursive:true,verbatimSymlinks:true,mode:constants.COPYFILE_FICLONE});
   const startedAt = new Date().toISOString();
   const runs = [];
   let failure = null;
 
   for (const surface of surfaces) {
+    onProgress?.({ stage: 'install', alias: surface.alias, current: runs.length + 1, total: surfaces.length });
+    if(reuseNpm && surface.source.startsWith('npm:')){runs.push({alias:surface.alias,source:surface.source,exitCode:0,stderr:'',reusedFrom:reuseNpm});continue;}
     const result = await runPiInstall(surface.source, { attemptDir, env });
     runs.push({ alias: surface.alias, source: surface.source, exitCode: result.code, stderr: tail(result.stderr) });
     if (result.code !== 0) {
@@ -157,7 +160,7 @@ export async function installApprovedPlan({ plan, agentDir, env, registry, fetch
           (mismatch.length
             ? { message: "installed artifact does not match the approved plan" }
             : problems.length
-              ? { message: "the installed revision could not be fully measured" }
+              ? { message: "the installed revision could not be fully measured: " + problems.slice(0, 3).map(p=>p.path+": "+p.reason).join("; "), problems }
               : null),
         // Anything an unsuccessful attempt left behind is reported, whether it
         // failed as a process or failed verification.
@@ -338,7 +341,10 @@ async function runPiInstall(source, { attemptDir, env }) {
   const [spawnFile, spawnArgs] = dispatchPiCommand(cli, ["install", source]);
   return run(spawnFile, spawnArgs, {
     cwd: attemptDir,
-    env: { ...env, PI_CODING_AGENT_DIR: attemptDir },
+    // npm otherwise saves caret ranges and a later native install can silently
+    // upgrade an earlier approved direct dependency. Pi still owns installation.
+    env: { ...env, PI_CODING_AGENT_DIR: attemptDir, NPM_CONFIG_SAVE_EXACT: "true", npm_config_save_exact: "true", NPM_CONFIG_AUDIT: "false", npm_config_audit: "false", npm_config_prefer_online: "true" },
+    timeoutMs: 600_000,
   });
 }
 
@@ -393,6 +399,7 @@ async function inventoryOf(attemptDir, { plan, env }) {
       alias: surface.alias,
       source,
       installedPath: entry.path,
+      ...(surface.resourceRoot ? { resourceRoot: surface.resourceRoot } : {}),
       // Recorded relative to the attempt directory so a moved or copied
       // revision is measured inside itself, not through a stale absolute path.
       installedRelative: relative(attemptDir, entry.path).split(sep).join("/"),

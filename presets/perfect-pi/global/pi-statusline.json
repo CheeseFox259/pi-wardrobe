@@ -1,0 +1,17 @@
+{
+  "palettePreset": "tokyo-night",
+  "density": "compact",
+  "separator": "dot",
+  "segments": [
+    "model",
+    "thinking",
+    "cwd",
+    "branch",
+    "line_break",
+    "context",
+    "tokens",
+    "cache",
+    "cost",
+    "time"
+  ]
+}

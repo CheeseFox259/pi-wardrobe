@@ -26,7 +26,7 @@ export function sessionStateOf(entries) {
   const mine = entries.filter((entry) => entry.type === "custom" && entry.customType === SESSION_TYPE);
   if (mine.length === 0) return emptyState();
   const last = mine.at(-1);
-  const data = last.data ?? {};
+  const { model: _legacyModel, ...data } = last.data ?? {};
   return {
     preset: data.preset ?? null,
     mode: data.mode ?? null,
@@ -34,7 +34,6 @@ export function sessionStateOf(entries) {
     appliedAt: data.appliedAt ?? null,
     runId: data.runId ?? null,
     tools: data.tools ?? [],
-    model: data.model ?? null,
     thinking: data.thinking ?? null,
     persona: data.persona ?? [],
     ...data,
@@ -49,7 +48,6 @@ function emptyState() {
     appliedAt: null,
     runId: null,
     tools: [],
-    model: null,
     thinking: null,
     persona: [],
   };
@@ -94,9 +92,11 @@ export function runningRevisionOf({ agentDir, reports }) {
  */
 export function executableShapeOf({ report, plan }) {
   return {
+    ...(plan.agent ? { agent: plan.agent } : {}),
     packages: (plan.installationSurfaces ?? []).map((surface) => ({
       alias: surface.alias,
       source: surface.source,
+      ...(surface.resourceRoot ? { resourceRoot: surface.resourceRoot } : {}),
     })),
     code: packageDigestsOf(report.lock),
     resources: (plan.resourceSelectors ?? []).flatMap((selector) =>
@@ -157,7 +157,6 @@ export function effectiveStateOf({
 export function appliedAgainst({ intended, effective }) {
   const rows = [
     { field: "tools", intended: intended.tools, effective: effective.tools },
-    { field: "model", intended: intended.model, effective: effective.model },
     { field: "thinking", intended: intended.thinking, effective: effective.thinking },
     { field: "persona", intended: intended.persona, effective: effective.persona },
   ];

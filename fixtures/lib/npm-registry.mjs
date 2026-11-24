@@ -108,10 +108,15 @@ export class NpmRegistryFixture {
       type: "application/json",
       body: JSON.stringify(buildPackument({ name, versions, tarballs, server, base })),
     });
-    server.json(base, packumentHandler);
-    if (name.includes("/")) {
-      server.json(`/npm/${name.replace(/\//g, "%2f")}`, packumentHandler);
-      server.json(`/npm/${name.replace(/\//g, "%2F")}`, packumentHandler);
+    const routes = new Set([base, `/npm/${name.replace(/\//g, "%2f")}`, `/npm/${name.replace(/\//g, "%2F")}`]);
+    for (const route of routes) {
+      server.json(route, packumentHandler);
+      for (const version of ["latest", ...tarballs.keys()]) {
+        server.json(`${route}/${version}`, () => {
+          const packument = buildPackument({ name, versions, tarballs, server, base });
+          return { type: "application/json", body: JSON.stringify(packument.versions[version === "latest" ? packument["dist-tags"].latest : version]) };
+        });
+      }
     }
     for (const [version, entry] of tarballs) {
       const path = `${base}/-/${name}-${version}.tgz`;
@@ -176,6 +181,7 @@ function buildPackument({ name, versions, tarballs, server, base }) {
     packed[spec.version] = {
       name: entry.manifest.name,
       version: entry.manifest.version,
+      dependencies: entry.manifest.dependencies,
       type: "module",
       hasInstallScript: true,
       scripts: entry.manifest.scripts,

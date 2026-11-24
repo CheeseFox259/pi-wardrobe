@@ -1,0 +1,98 @@
+{
+  "name": "@narumitw/pi-lsp",
+  "version": "0.49.8",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "lsp",
+    "language-server-protocol",
+    "configurable",
+    "lint",
+    "diagnostics",
+    "code-action"
+  ],
+  "license": "MIT",
+  "_id": "@narumitw/pi-lsp@0.49.8",
+  "maintainers": [
+    {
+      "name": "narumitw",
+      "email": "lion.grainy5c@icloud.com"
+    }
+  ],
+  "homepage": "https://github.com/narumiruna/pi-extensions#readme",
+  "bugs": {
+    "url": "https://github.com/narumiruna/pi-extensions/issues"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/index.ts"
+    ]
+  },
+  "dist": {
+    "shasum": "4c614971a7b4353fe03bd38a08a33062ff444df2",
+    "tarball": "https://registry.npmjs.org/@narumitw/pi-lsp/-/pi-lsp-0.49.8.tgz",
+    "fileCount": 17,
+    "integrity": "sha512-Djrm0BBmbITmKUv2OtrPUACbP2j1GA7DQ4n/P/mZLf++s6Vv4fMMJUPvrQ01UtnaIQ7XzMCKzWrOyrJatyOGSw==",
+    "signatures": [
+      {
+        "sig": "MEUCIAhMb/dbdbRuL1AI4JWNFtJYZSQdnECvbt2AiUrVMwyfAiEA/OvQqvcQjYWe0ZqcLezg1rnlziftI2a0Lr1HddviTV8=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEYCIQDAOd7c29LkD8dkm2R22Zj6ce686aMEUe7ah5nyU7zYTgIhAMNLaaBygYNLgRFeP3YtlQgXkuseNINyl0Ce71RYTsHb",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@narumitw%2fpi-lsp@0.49.8",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "unpackedSize": 266198
+  },
+  "type": "module",
+  "gitHead": "76f42aeaec16aabc98af2b50ae5261e62e1c7935",
+  "private": false,
+  "scripts": {
+    "build": "node scripts/build-runtime.mjs",
+    "check": "npm run build && biome check . && npm run typecheck",
+    "format": "biome check --write .",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "_npmUser": {
+    "name": "GitHub Actions",
+    "email": "npm-oidc-no-reply@github.com",
+    "trustedPublisher": {
+      "id": "github",
+      "oidcConfigId": "oidc:bcfac8e0-c147-4248-842c-c465e0a3b8cc"
+    }
+  },
+  "repository": {
+    "url": "git+https://github.com/narumiruna/pi-extensions.git",
+    "type": "git",
+    "directory": "packages/pi-lsp"
+  },
+  "_npmVersion": "11.19.1",
+  "description": "Pi extension that exposes configurable, language-agnostic LSP tools through a shared runner.",
+  "directories": {},
+  "_nodeVersion": "26.9.0",
+  "_hasShrinkwrap": false,
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typebox": "1.3.34",
+    "typescript": "7.0.2",
+    "@types/node": "26.6.2",
+    "@earendil-works/pi-coding-agent": "0.86.0"
+  },
+  "peerDependencies": {
+    "typebox": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "_npmOperationalInternal": {
+    "tmp": "tmp/pi-lsp_0.49.8_1789891715848_0.4027887192531374",
+    "host": "s3://npm-registry-packages-npm-production"
+  }
+}

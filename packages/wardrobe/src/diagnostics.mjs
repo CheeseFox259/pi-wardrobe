@@ -7,6 +7,10 @@
 /** Keys that look plausible to a preset author but are deliberately excluded. */
 const UNSUPPORTED = [
   {
+    match: /^(model|models|provider|defaultModel|defaultProvider|enabledModels|modelThinkingLevels)$/i,
+    reason: "model configuration belongs to Pi; choose models through Pi's native settings and commands",
+  },
+  {
     match: /^(pre|post)?(install|prepare|prepare:.*|scripts?)$/i,
     reason:
       "script hooks are not part of the preset contract; declare packages and resources instead",

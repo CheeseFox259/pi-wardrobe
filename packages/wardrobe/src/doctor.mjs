@@ -30,7 +30,7 @@ import {
   presentRuntimeData,
 } from "./lock.mjs";
 import { digestMatches, digestOf } from "./plan.mjs";
-import { satisfies } from "./semver.mjs";
+import { supportsPi } from "./semver.mjs";
 
 /** What every state means, reported verbatim so the text can say the same. */
 export const STATES = {
@@ -339,7 +339,7 @@ function baselineUnverified(expected, observed) {
   for (const field of ["pi", "node", "npm", "platform", "arch"]) {
     const locked = expected?.[field] ?? null;
     const here = observed?.[field] ?? null;
-    if (locked === here) continue;
+    if (locked === here || field==='pi' && locked && supportsPi('>='+locked,here)===true) continue;
     unverified.push({
       component: "baseline",
       reason: `this host runs ${field} ${here ?? "unknown"}, the revision was locked on ${locked ?? "unknown"}`,
@@ -370,7 +370,7 @@ function environmentUnverified(plan, baseline) {
         detail: "an unchecked compatibility range is not a satisfied range",
       });
     } else {
-      const resolved = satisfies(range, baseline.pi);
+      const resolved = supportsPi(range, baseline.pi);
       if (resolved === null) {
         unverified.push({
           component: "compatibility",

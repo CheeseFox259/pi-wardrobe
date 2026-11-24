@@ -10,7 +10,7 @@
 //     canonical package, and two layers may not require different versions of
 //     one canonical package.
 //   - Overlays are soft. User and session layers may change tools, thinking,
-//     model and appended instructions, and nothing else. Executable identity
+//     and appended instructions, and nothing else. Executable identity
 //     belongs to a reviewed revision, so a change to it needs a new one.
 
 import { WardrobeDiagnostic, WardrobeError } from "./diagnostics.mjs";
@@ -26,7 +26,7 @@ const GENERIC_KIND = "resources";
  *   `captured` and `definition`
  * @param {{restrictions?: object}} options `restrictions` describes choices a
  *   preset may never override: CLI exclusions and the user's authorization
- *   boundary, plus an explicit user/CLI model choice.
+ *   boundary.
  * @returns {object} plain data: every value is JSON-serialisable and carries
  *   the layer that produced it
  */
@@ -39,7 +39,6 @@ export function compose(layers, { restrictions = {} } = {}) {
     runtime: {
       tools: foldTools(layers, restrictions),
       thinking: foldThinking(layers),
-      model: foldModel(layers, restrictions),
     },
     persona: foldPersona(layers),
   };
@@ -331,36 +330,6 @@ export function foldThinking(layers) {
   return null;
 }
 
-/**
- * Model preference, which yields to an explicit user or CLI choice.
- *
- * The choice is reported separately from the declaration so a preference is
- * never presented as the effective runtime state.
- */
-export function foldModel(layers, restrictions = {}) {
-  const declared = [];
-  let preferred = null;
-  for (const layer of layers) {
-    const model = layer.definition.runtime?.model;
-    if (!model) continue;
-    const value = `${model.provider ?? "(current provider)"}/${model.id ?? "(current)"}`;
-    declared.push({ value, layer: layer.kind, identity: layer.identity });
-    preferred = { value, layer: layer.kind, identity: layer.identity };
-  }
-  const choice = restrictions.model ?? null;
-  if (choice) {
-    return {
-      value: choice,
-      winner: "user",
-      declared,
-      reason: "an explicit user or CLI model choice wins over a declared preference",
-    };
-  }
-  return preferred
-    ? { value: preferred.value, winner: "preset", declared, layer: preferred.layer, identity: preferred.identity }
-    : { value: null, winner: null, declared, reason: "no layer declared a model preference" };
-}
-
 /** Appended instructions concatenate in layer order; nothing is removed. */
 export function foldPersona(layers) {
   const append = [];
@@ -409,7 +378,7 @@ export function classifyChange(previous, next) {
 }
 
 function softChanges(previous, next) {
-  const fields = ["tools", "thinking", "model"];
+  const fields = ["tools", "thinking"];
   const changed = fields.filter(
     (field) => JSON.stringify(previous.runtime[field]) !== JSON.stringify(next.runtime[field])
   );
@@ -481,13 +450,13 @@ export function softOverlayViolation(key, path, field = null, container = null) 
         : `an overlay may not declare persona.${field}`,
     hint:
       container === "runtime"
-        ? "only tools, thinking and model are idle soft-switchable"
+        ? "only tools and thinking are idle soft-switchable; model selection belongs to Pi"
         : "only appended instructions may be layered",
   });
 }
 
 const SOFT_OVERLAY_FIELDS = new Set(["runtime", "persona"]);
-const SOFT_RUNTIME_FIELDS = new Set(["tools", "thinking", "model"]);
+const SOFT_RUNTIME_FIELDS = new Set(["tools", "thinking"]);
 const SOFT_PERSONA_FIELDS = new Set(["append"]);
 
 function selectorKey(packageName, kind) {

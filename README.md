@@ -1,63 +1,54 @@
 # pi-wardrobe
 
-Reproducible preset lifecycle for the Pi CLI agent (v1.1.0).
+Manage Pi presets from Pi’s composer. Start with `pi`, open `/wardrobe`, and create, import, edit or switch working environments in the same terminal.
 
-Pi Wardrobe allows Pi users to discover, review, compose, activate, and share environment presets without replacing Pi's package manager, corrupting personal settings, or running unreviewed code.
+## Install from a checkout
 
-The approved V1 specification is in [`docs/specs/wardrobe-v1.md`](docs/specs/wardrobe-v1.md). Domain glossary is in [`CONTEXT.md`](CONTEXT.md) and architectural decisions are recorded in [`docs/adr/`](docs/adr/).
+Requires Node 22.19+ on macOS/Linux. The native integration has fixture coverage on macOS arm64 with Node 26.5.0. A daily Pi 1.6.0 installation also passed a compatibility update, targeted maintenance and preset handoff. The bundled Perfect Pi preset has its own runtime baseline. See the [live handoff](docs/handoffs/pi-wardrobe-native-2026-11-24.zh-CN.md) for the scope of that verification.
 
----
+Install the extension once using native Pi:
 
-## Key Capabilities
+```sh
+pi install /path/to/pi-wardrobe/packages/wardrobe
+pi
+```
 
-- **Zero-Dependency Manager:** `@pi-wardrobe/manager` installs cleanly with zero runtime dependencies, zero MCP servers, and zero auto-installed presets.
-- **Review Before Execution:** Sources (Bare Git fixtures, loopback npm, and offline-normalized GitHub references) produce immutable review plans with SHA-256 digests, naming installation surfaces, code-execution scripts, and load surfaces.
-- **Inactive Staging:** Approved packages are staged with resources filtered inactive until explicit launch.
-- **Process Isolation:** Runs execute against dedicated staging directories with exclusive leases; one revision is one writer.
-- **Idle Soft Changes:** In-session preference updates apply in place without changing the process; executable differences return a new-process launch plan.
-- **Follow & Strict Resume:** Follow mode tracks newest approved revisions by approval order; strict mode pins exact revisions with actionable refusal recovery.
-- **Branch Reconciliation:** Tree navigation across branches blocks model turns on incompatible presets/revisions and provides relaunch plans.
-- **Revision Locks & Drift:** Four-dimension locks (configuration, resources, code, baseline) detect tampering and refuse drifted launches.
-- **Guarded Removal:** Revisions protected by active leases, strict bindings, or explicit retains refuse deletion; releasing drops retains cleanly.
-- **Shell / PATH Forwarding:** Standalone TTY selector and optional `pi --wardrobe` forwarding wrapper with clean, reversible removal.
+In Pi, enter `/wardrobe`. Review the first-use summary to create **我的原始配置** from global resources and preferences. Models, credentials, saved model choices and project configuration continue to use native Pi. Shared personal skills remain in their original locations.
 
----
+The first screen is a searchable preset list. Enter uses a preset; → opens management; Ctrl+n creates; Ctrl+o imports. Create from the current environment, another preset, a blank definition, or with Pi. Edits stay in a draft until reviewed and saved, and saved versions stay inactive until selected.
+
+Existing Pi configuration directories, including Perfect Pi, use **导入 → 本地**. Standard Git/npm preset repositories use the same import flow. Export shares public resources and declared device requirements; machine paths and private binding values stay local. Set global or project startup defaults separately from using a preset.
+
+See the [中文操作指南](docs/usage.zh-CN.md) for the complete sequence, updates and recovery.
+
+## Behavior
+
+- Switching starts a new conversation in the same terminal after native Pi cleans up the old process. It does not change startup defaults.
+- Native `/resume`, startup session selection and Wardrobe’s history menu restore the conversation’s preset. Original conversations remain recoverable.
+- Import a standard GitHub/Git repository or an npm package; choose a preset when the repository contains several. Review exact packages, scripts, resources and compatibility once before installation.
+- Update reviews compatibility and upstream changes, then asks for approval before implementation. Maintain applies a requested change in a separate candidate workspace. Verified changes install as a local revision with the old version retained.
+- Pi and extensions, including Wardrobe, use native `pi update`. Wardrobe maintains preset source, upstream skills and compatibility.
+- The current preset appears above the composer by default. A preset can use the public presentation event to move its identity into a custom footer.
+- Normal startup checks only the selected prepared environment. It performs no remote update check, full history scan or extra Pi probe. Explicit verification and repair remain available in the composer.
 
 ## Documentation
 
-- **[Usage and Preset Authoring Guide](docs/usage-and-authoring.md):** Comprehensive reference covering commands, reference presets, `preset.json` schema, identity rules, follow/strict tradeoffs, and drift diagnosis.
-- **[Package Reference (`@pi-wardrobe/manager`)](packages/wardrobe/README.md):** Technical design, command tables, composition rules, and storage layouts.
-- **[Controlled Fixtures Documentation](fixtures/README.md):** Reproducible local Bare Git and npm registry fixtures.
+- [中文操作指南](docs/usage.zh-CN.md)
+- [实机交接记录](docs/handoffs/pi-wardrobe-native-2026-11-24.zh-CN.md)
+- [Standard preset repositories](docs/preset-repository-standard.md)
+- [Native manager commands](packages/wardrobe/README.md)
+- [Approved behavior and verification evidence](docs/wardrobe-native-experience.md)
+- [Preset redesign and acceptance](docs/planning/wardrobe-preset-redesign.md)
+- [Domain glossary](CONTEXT.md), [architecture decisions](docs/adr/)
+- [Legacy V1 CLI reference](docs/legacy-manager-reference.md)
 
----
+The repository includes Minimal Coding, Perfect Pi Engineering and Perfect Pi Full. Full retains the migrated skills, extensions, prompts, themes, agents, habits and package dependencies; host programs such as language servers and tmux still need to exist when their features are used. [Migration details](docs/perfect-pi-migration-evidence.md).
 
-## Shipped Reference Presets
-
-- **Minimal Coding (`presets/minimal-coding/`):** Native-only baseline declaring built-in tools (`read`, `edit`, `write`, `bash`), medium thinking, and concise persona guidelines. Zero external dependencies.
-- **Perfect Pi Engineering (`presets/engineering/`):** Curated engineering reference declaring 12 skill families, question/questionnaire extensions, pinned Guardrails and LSP packages, and truthful reporting of unmet host prerequisites.
-
----
-
-## Verified Baseline & Boundaries
-
-- **Verified Platform:** macOS arm64 (`darwin arm64`)
-- **Verified Runtime:** Pi 1.1.0, Node v26.5.0, npm 11.17.0
-- **Unknown Platforms:** Linux, Windows, x86_64, and untested Node/Pi versions remain **explicitly unverified, not certified**.
-- **No Arbitrary-Code Sandbox:** Native installation runs package lifecycle scripts via Node/npm with standard user permissions.
-- **No Script Rollback:** Failed installs are retained for diagnosis (`rolledBack: false`); external script effects are not claimed reversed.
-- **No Frozen Transitive Rebuild Promise:** Locks measure disks, but do not promise unconditional frozen transitive rebuild across time or external network conditions.
-
----
-
-## Running Checks
+## Development
 
 ```sh
-# Run the complete test suite
 npm test
-
-# Run tests and generate the native fixture evidence report
-npm run fixtures:verify
-
-# Re-generate evidence report from existing payloads
 npm run fixtures:report
 ```
+
+Tests use isolated real Pi processes and controlled Git/npm sources. Package installation uses normal native Pi/npm permissions. Legacy recovery entry points remain available.

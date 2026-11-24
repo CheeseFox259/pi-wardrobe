@@ -320,7 +320,7 @@ test("a missing revision is not reported as the original exact revision", async 
   });
 });
 
-test("a different baseline, a tampered plan and an unsupported range are never available", async () => {
+test("a newer runtime, a tampered plan and an unsupported range follow their actual compatibility contracts", async () => {
   const h = harness();
   await installManager(h);
   const git = await repo(h, "lock-baseline", [
@@ -330,8 +330,8 @@ test("a different baseline, a tampered plan and an unsupported range are never a
   const { record, plan, planPath } = stored(h, planId);
   const attempt = record.attempts.at(-1);
 
-  // A different toolchain is not silently equivalent: the tree still matches,
-  // but this host cannot vouch for the revision.
+  // A newer Pi alone does not invalidate a revision; an actual platform
+  // mismatch remains unsupported even when the resource tree is unchanged.
   const otherBaseline = {
     ...record,
     attempts: [
@@ -345,8 +345,9 @@ test("a different baseline, a tampered plan and an unsupported range are never a
   assert.equal(moved.state, "unverified");
   assert.equal(moved.recorded, "available");
   assert.deepEqual(moved.drift, []);
-  assert.ok(
-    moved.unverified.some((entry) => entry.component === "baseline" && /baseline\.pi/.test(entry.path ?? "") === false && /this host runs pi/.test(entry.reason)),
+  assert.equal(
+    moved.unverified.some((entry) => /this host runs pi/.test(entry.reason)),
+    false,
     JSON.stringify(moved.unverified)
   );
   assert.ok(moved.unverified.some((entry) => /platform/.test(entry.detail)));

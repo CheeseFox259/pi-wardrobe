@@ -20,6 +20,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   statSync,
   writeFileSync,
@@ -360,7 +361,7 @@ test("integrated V1 acceptance: complete user journey in one controlled run", as
     const manifest = JSON.parse(readFileSync(join(MANAGER_DIR, "package.json"), "utf8"));
     assert.deepEqual(manifest.dependencies ?? {}, {}, "manager declares dependencies");
     assert.deepEqual(manifest.scripts ?? {}, {}, "manager declares install scripts");
-    assert.deepEqual(manifest.pi.skills, [], "manager ships skills");
+    assert.deepEqual(manifest.pi.skills, ["skills/wardrobe-update", "skills/wardrobe-maintain"], "manager ships only the shared workflow methods");
     assert.deepEqual(manifest.pi.prompts, [], "manager ships prompts");
     assert.deepEqual(manifest.pi.themes, [], "manager ships themes");
 
@@ -985,7 +986,7 @@ test("integrated V1 acceptance: complete user journey in one controlled run", as
     assert.ok(existsSync(wrapperPath), "wrapper was not created");
     const wrapperContent = readFileSync(wrapperPath, "utf8");
     assert.ok(wrapperContent.includes(INTEGRATION_MARKER));
-    assert.ok(wrapperContent.includes(h.runtime.cliPath));
+    assert.ok(wrapperContent.includes(realpathSync(h.runtime.cliPath)));
 
     // Disable integration: removes pi wrapper cleanly
     const disabled = await h.sandbox.runner.run(

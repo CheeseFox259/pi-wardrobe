@@ -139,6 +139,15 @@ function renderPlan(result) {
         (surface.declaredBy ? `  [from ${surface.declaredBy.layer}]` : "")
     );
   }
+  for (const surface of plan.installationSurfaces) {
+    if (surface.resourceRoot) lines.push(`    package root: ${surface.alias}/${surface.resourceRoot}`);
+  }
+  if (plan.agent) {
+    lines.push("  agent files (created on first launch):");
+    for (const file of plan.agent.files) lines.push(`    ${file.target} <- ${file.package}/${file.source}${file.mutable ? " (mutable seed; existing file preserved)" : " (locked)"}`);
+    for (const directory of plan.agent.directories ?? []) lines.push(`    directory: ${directory} (0700)`);
+    lines.push(`  agent settings: ${JSON.stringify(plan.agent.settings)}`);
+  }
   lines.push("  would load:");
   if (plan.loadSurfaces.length === 0) {
     lines.push("    (nothing: no effective selector selects a resource)");
@@ -502,14 +511,9 @@ function renderStaging(staging) {
 /** Effective preferences, always marked as proposals until a preset is used. */
 function renderPreferences(plan) {
   if (!plan.runtime) return [];
-  const { tools, thinking, model } = plan.runtime;
+  const { tools, thinking } = plan.runtime;
   const lines = ["  preferences (proposals, not applied):"];
   if (thinking) lines.push(`    thinking: ${thinking.value} (from ${thinking.layer})`);
-  if (model?.value) {
-    lines.push(
-      `    model: ${model.value} (${model.winner === "user" ? "an explicit user or CLI choice wins" : `from ${model.layer}`})`
-    );
-  }
   if (tools.enabled.length > 0) {
     lines.push(`    enable: ${tools.enabled.map((entry) => entry.tool).join(", ")}`);
   }

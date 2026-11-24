@@ -1,6 +1,6 @@
 # Perfect Pi Engineering
 
-The curated engineering reference preset for Pi CLI agent v1.1.0.
+The curated engineering reference preset for Pi CLI agent 1.1.0–1.3.0. Version 1.0.1 extends the original 1.1 compatibility declaration after native 1.3 runtime verification; resource selection and preferences retain the V1 specification.
 
 `Perfect Pi Engineering` bundles 12 curated engineering skill families, structured interactive question and questionnaire extensions, and pinned native integrations for Guardrails (`@aliou/pi-guardrails@0.19.0`) and LSP (`@narumitw/pi-lsp@0.49.9`), operating at a `high` thinking level with persona domain guidance.
 

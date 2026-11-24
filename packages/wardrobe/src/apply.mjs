@@ -1,6 +1,6 @@
 // Deciding whether a `use` can be applied inside the running session.
 //
-// `use` has two jobs and it must never blur them. A difference in tools, model
+// `use` has two jobs and it must never blur them. A difference in tools
 // preference, thinking level or appended instructions is a preference the
 // running process can adopt. A difference in packages, resources or code is not:
 // those were reviewed and installed as a revision, and changing them is a new
@@ -26,6 +26,7 @@ export function executableDifference({ current, target }) {
       detail: "this session is not running an installed revision",
     });
   } else {
+    if (JSON.stringify(current.agent ?? null) !== JSON.stringify(target.agent ?? null)) differences.push({ kind: "resource", detail: "agent files or startup settings would change" });
     for (const [group, digest] of Object.entries(target.code)) {
       if (current.code[group] !== digest) {
         differences.push({
@@ -46,8 +47,8 @@ export function executableDifference({ current, target }) {
 }
 
 function packageDifferences(current, target) {
-  const left = new Map(current.packages.map((entry) => [entry.alias, entry.source]));
-  const right = new Map(target.packages.map((entry) => [entry.alias, entry.source]));
+  const left = new Map(current.packages.map((entry) => [entry.alias, `${entry.source}#${entry.resourceRoot ?? ""}`]));
+  const right = new Map(target.packages.map((entry) => [entry.alias, `${entry.source}#${entry.resourceRoot ?? ""}`]));
   const changes = [];
   for (const [alias, source] of right) {
     if (!left.has(alias)) changes.push({ kind: "package", detail: `${alias} (${source}) would be installed` });
@@ -128,44 +129,6 @@ export function planTools({ wanted, current, available }) {
     intended: wantedNames.sort(),
     resulting: [...present].concat(add).filter((name) => !remove.includes(name)).sort(),
     changed: add.length > 0 || remove.length > 0,
-  };
-}
-
-/**
- * The model preference, as an intention rather than a change.
- *
- * Resolution and credentials belong to the process: this returns what was asked
- * for and why it may not be applied, and never claims the model changed.
- */
-export function planModel({ preference, effective, chosenHere }) {
-  if (!preference?.value) {
-    return { requested: null, applies: false, reason: null, effective };
-  }
-  if (preference.winner === "user") {
-    return {
-      requested: preference.value,
-      applies: false,
-      reason: "an explicit user or CLI model choice wins over a declared preference",
-      effective,
-    };
-  }
-  // A model the session already carries, which the revision it is running does
-  // not declare, was chosen by the user in this process. A preset preference
-  // does not get to take that back.
-  if (chosenHere) {
-    return {
-      requested: preference.value,
-      applies: false,
-      reason: `this session already runs ${chosenHere}, which the revision does not declare; an explicit choice is not overridden`,
-      effective,
-    };
-  }
-  return {
-    requested: preference.value,
-    applies: true,
-    reason: null,
-    effective,
-    layer: preference.layer ?? null,
   };
 }
 

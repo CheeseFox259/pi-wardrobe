@@ -52,9 +52,11 @@ export function buildPlan({
   runtime,
   persona,
   executable,
+  agent,
 }) {
   const plan = {
     identity,
+    ...(agent ? { agent } : {}),
     declaration: {
       name: definition.name,
       version: definition.version,
@@ -71,6 +73,7 @@ export function buildPlan({
       source: entry.source,
       resolvesTo: entry.resolvesTo,
       artifact: entry.artifact,
+      ...(entry.resourceRoot ? { resourceRoot: entry.resourceRoot } : {}),
       installsCode: entry.hasInstallScript === true,
       scripts: entry.scripts ?? [],
       declaredBy: entry.origin ?? null,

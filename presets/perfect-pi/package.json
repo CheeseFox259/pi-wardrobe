@@ -1,0 +1,1289 @@
+{
+  "name": "perfect-pi-full",
+  "version": "1.0.4",
+  "type": "module",
+  "license": "MIT",
+  "description": "Complete pinned Perfect Pi, isolated by Wardrobe",
+  "pi": {
+    "extensions": [
+      "global/extensions/command-palette.ts",
+      "global/extensions/image-handoff.ts",
+      "global/extensions/mcp-settings.ts",
+      "global/extensions/model-habits.ts",
+      "global/extensions/question.ts",
+      "global/extensions/questionnaire.ts",
+      "global/extensions/sol-pi.ts",
+      "global/extensions/structured-output.ts",
+      "global/extensions/tmux-supervisor.ts",
+      "global/extensions/tools.ts"
+    ],
+    "skills": [
+      "skills/ask-matt/SKILL.md",
+      "skills/claude-handoff/SKILL.md",
+      "skills/code-review/SKILL.md",
+      "skills/codebase-design/SKILL.md",
+      "skills/diagnosing-bugs/SKILL.md",
+      "skills/domain-modeling/SKILL.md",
+      "skills/frontend-design/SKILL.md",
+      "skills/git-guardrails-claude-code/SKILL.md",
+      "skills/grill-me/SKILL.md",
+      "skills/grill-with-docs/SKILL.md",
+      "skills/grilling/SKILL.md",
+      "skills/handoff/SKILL.md",
+      "skills/implement/SKILL.md",
+      "skills/implement-spec/SKILL.md",
+      "skills/improve-codebase-architecture/SKILL.md",
+      "skills/loop-me/SKILL.md",
+      "skills/maintain/SKILL.md",
+      "skills/migrate-to-shoehorn/SKILL.md",
+      "skills/pr/SKILL.md",
+      "skills/project-architecture/SKILL.md",
+      "skills/prototype/SKILL.md",
+      "skills/research/SKILL.md",
+      "skills/resolving-merge-conflicts/SKILL.md",
+      "skills/retro/SKILL.md",
+      "skills/route/SKILL.md",
+      "skills/scaffold-exercises/SKILL.md",
+      "skills/setup-matt-pocock-skills/SKILL.md",
+      "skills/setup-pre-commit/SKILL.md",
+      "skills/setup-ts-deep-modules/SKILL.md",
+      "skills/skill-creator/SKILL.md",
+      "skills/tdd/SKILL.md",
+      "skills/teach/SKILL.md",
+      "skills/to-questionnaire/SKILL.md",
+      "skills/to-spec/SKILL.md",
+      "skills/to-tickets/SKILL.md",
+      "skills/triage/SKILL.md",
+      "skills/vercel-react-best-practices/SKILL.md",
+      "skills/verify-product/SKILL.md",
+      "skills/wait-what/SKILL.md",
+      "skills/wayfinder/SKILL.md",
+      "skills/web-design-guidelines/SKILL.md",
+      "skills/wizard/SKILL.md",
+      "skills/writing-beats/SKILL.md",
+      "skills/writing-for-agents/SKILL.md",
+      "skills/writing-fragments/SKILL.md",
+      "skills/writing-shape/SKILL.md",
+      "skills/update/SKILL.md"
+    ],
+    "prompts": [
+      "global/prompts/release-check.md",
+      "global/prompts/ui-check.md",
+      "global/prompts/verify.md"
+    ]
+  },
+  "wardrobe": {
+    "agent": {
+      "schemaVersion": 1,
+      "files": [
+        {
+          "source": "global/AGENTS.md",
+          "target": "AGENTS.md"
+        },
+        {
+          "source": "global/sol-pi.json",
+          "target": "sol-pi.json",
+          "mutable": true
+        },
+        {
+          "source": "manifest.json",
+          "target": "manifest.json"
+        },
+        {
+          "source": "components.json",
+          "target": "components.json"
+        },
+        {
+          "source": "scripts/check-managed-mcp.mjs",
+          "target": "scripts/check-managed-mcp.mjs"
+        },
+        {
+          "source": "scripts/check-pi-compatibility.mjs",
+          "target": "scripts/check-pi-compatibility.mjs"
+        },
+        {
+          "source": "scripts/check-pi-updates.mjs",
+          "target": "scripts/check-pi-updates.mjs"
+        },
+        {
+          "source": "scripts/check-sol-pi-contract.mjs",
+          "target": "scripts/check-sol-pi-contract.mjs"
+        },
+        {
+          "source": "scripts/clipboard-image.mjs",
+          "target": "scripts/clipboard-image.mjs"
+        },
+        {
+          "source": "scripts/import-minimax-from-claude.mjs",
+          "target": "scripts/import-minimax-from-claude.mjs"
+        },
+        {
+          "source": "scripts/managed-mcp.mjs",
+          "target": "scripts/managed-mcp.mjs"
+        },
+        {
+          "source": "scripts/mcp-config.mjs",
+          "target": "scripts/mcp-config.mjs"
+        },
+        {
+          "source": "scripts/mcp-launch.mjs",
+          "target": "scripts/mcp-launch.mjs"
+        },
+        {
+          "source": "scripts/mcp-secrets.mjs",
+          "target": "scripts/mcp-secrets.mjs"
+        },
+        {
+          "source": "scripts/model-habits.mjs",
+          "target": "scripts/model-habits.mjs"
+        },
+        {
+          "source": "scripts/pi-runtime.mjs",
+          "target": "scripts/pi-runtime.mjs"
+        },
+        {
+          "source": "scripts/session-usage.mjs",
+          "target": "scripts/session-usage.mjs"
+        },
+        {
+          "source": "scripts/ticket-worker.mjs",
+          "target": "scripts/ticket-worker.mjs"
+        },
+        {
+          "source": "scripts/tmux-dashboard.mjs",
+          "target": "scripts/tmux-dashboard.mjs"
+        },
+        {
+          "source": "scripts/tmux-tickets.mjs",
+          "target": "scripts/tmux-tickets.mjs"
+        },
+        {
+          "source": "scripts/web-access-config.mjs",
+          "target": "scripts/web-access-config.mjs"
+        },
+        {
+          "source": "docs/experiments/implementation-ladder-2026-09-29.md",
+          "target": "docs/experiments/implementation-ladder-2026-09-29.md"
+        },
+        {
+          "source": "docs/experiments/managed-mcp-maintenance-assessment.md",
+          "target": "docs/experiments/managed-mcp-maintenance-assessment.md"
+        },
+        {
+          "source": "docs/experiments/packages-and-skills-update-assessment.md",
+          "target": "docs/experiments/packages-and-skills-update-assessment.md"
+        },
+        {
+          "source": "docs/experiments/pi-1.0-feature-adoption.md",
+          "target": "docs/experiments/pi-1.0-feature-adoption.md"
+        },
+        {
+          "source": "docs/experiments/pi-1.0.2-sol-pi-assessment.md",
+          "target": "docs/experiments/pi-1.0.2-sol-pi-assessment.md"
+        },
+        {
+          "source": "docs/experiments/pi-1.0.3-assessment.md",
+          "target": "docs/experiments/pi-1.0.3-assessment.md"
+        },
+        {
+          "source": "docs/experiments/pi-1.0.4-assessment.md",
+          "target": "docs/experiments/pi-1.0.4-assessment.md"
+        },
+        {
+          "source": "docs/experiments/pi-1.1.0-assessment.md",
+          "target": "docs/experiments/pi-1.1.0-assessment.md"
+        },
+        {
+          "source": "docs/experiments/pi-adaptation-verification.md",
+          "target": "docs/experiments/pi-adaptation-verification.md"
+        },
+        {
+          "source": "docs/managed-mcp.md",
+          "target": "docs/managed-mcp.md"
+        },
+        {
+          "source": "docs/native-workflows.md",
+          "target": "docs/native-workflows.md"
+        },
+        {
+          "source": "docs/pi-compatibility.md",
+          "target": "docs/pi-compatibility.md"
+        },
+        {
+          "source": "docs/skill-audit-remaining.md",
+          "target": "docs/skill-audit-remaining.md"
+        },
+        {
+          "source": "docs/sol-pi.md",
+          "target": "docs/sol-pi.md"
+        },
+        {
+          "source": "docs/USAGE.zh-CN.md",
+          "target": "docs/USAGE.zh-CN.md"
+        },
+        {
+          "source": "docs/wardrobe-maintenance.md",
+          "target": "docs/wardrobe-maintenance.md"
+        },
+        {
+          "source": "habits/minimax-m3.1-flash-preview.md",
+          "target": "habits/minimax-m3.1-flash-preview.md",
+          "mutable": true
+        },
+        {
+          "source": "global/agents/implementer.md",
+          "target": "agents/implementer.md"
+        },
+        {
+          "source": "global/agents/planner.md",
+          "target": "agents/planner.md"
+        },
+        {
+          "source": "global/agents/reviewer.md",
+          "target": "agents/reviewer.md"
+        },
+        {
+          "source": "global/agents/scout.md",
+          "target": "agents/scout.md"
+        },
+        {
+          "source": "global/agents/worker.md",
+          "target": "agents/worker.md"
+        },
+        {
+          "source": "skills/ask-matt/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/ask-matt/agents/openai.yaml"
+        },
+        {
+          "source": "skills/ask-matt/PHASE-BOUNDARIES.md",
+          "target": "wardrobe/preset/skills/ask-matt/PHASE-BOUNDARIES.md"
+        },
+        {
+          "source": "skills/ask-matt/phase-contract.json",
+          "target": "wardrobe/preset/skills/ask-matt/phase-contract.json"
+        },
+        {
+          "source": "skills/ask-matt/SKILL.md",
+          "target": "wardrobe/preset/skills/ask-matt/SKILL.md"
+        },
+        {
+          "source": "skills/claude-handoff/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/claude-handoff/agents/openai.yaml"
+        },
+        {
+          "source": "skills/claude-handoff/SKILL.md",
+          "target": "wardrobe/preset/skills/claude-handoff/SKILL.md"
+        },
+        {
+          "source": "skills/code-review/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/code-review/agents/openai.yaml"
+        },
+        {
+          "source": "skills/code-review/references/review-modes.md",
+          "target": "wardrobe/preset/skills/code-review/references/review-modes.md"
+        },
+        {
+          "source": "skills/code-review/references/smell-baseline.md",
+          "target": "wardrobe/preset/skills/code-review/references/smell-baseline.md"
+        },
+        {
+          "source": "skills/code-review/SKILL.md",
+          "target": "wardrobe/preset/skills/code-review/SKILL.md"
+        },
+        {
+          "source": "skills/codebase-design/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/codebase-design/agents/openai.yaml"
+        },
+        {
+          "source": "skills/codebase-design/DEEPENING.md",
+          "target": "wardrobe/preset/skills/codebase-design/DEEPENING.md"
+        },
+        {
+          "source": "skills/codebase-design/DESIGN-IT-TWICE.md",
+          "target": "wardrobe/preset/skills/codebase-design/DESIGN-IT-TWICE.md"
+        },
+        {
+          "source": "skills/codebase-design/SKILL.md",
+          "target": "wardrobe/preset/skills/codebase-design/SKILL.md"
+        },
+        {
+          "source": "skills/diagnosing-bugs/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/diagnosing-bugs/agents/openai.yaml"
+        },
+        {
+          "source": "skills/diagnosing-bugs/scripts/hitl-loop.template.sh",
+          "target": "wardrobe/preset/skills/diagnosing-bugs/scripts/hitl-loop.template.sh"
+        },
+        {
+          "source": "skills/diagnosing-bugs/SKILL.md",
+          "target": "wardrobe/preset/skills/diagnosing-bugs/SKILL.md"
+        },
+        {
+          "source": "skills/domain-modeling/ADR-FORMAT.md",
+          "target": "wardrobe/preset/skills/domain-modeling/ADR-FORMAT.md"
+        },
+        {
+          "source": "skills/domain-modeling/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/domain-modeling/agents/openai.yaml"
+        },
+        {
+          "source": "skills/domain-modeling/GLOSSARY-FORMAT.md",
+          "target": "wardrobe/preset/skills/domain-modeling/GLOSSARY-FORMAT.md"
+        },
+        {
+          "source": "skills/domain-modeling/SKILL.md",
+          "target": "wardrobe/preset/skills/domain-modeling/SKILL.md"
+        },
+        {
+          "source": "skills/frontend-design/LICENSE.txt",
+          "target": "wardrobe/preset/skills/frontend-design/LICENSE.txt"
+        },
+        {
+          "source": "skills/frontend-design/SKILL.md",
+          "target": "wardrobe/preset/skills/frontend-design/SKILL.md"
+        },
+        {
+          "source": "skills/git-guardrails-claude-code/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/git-guardrails-claude-code/agents/openai.yaml"
+        },
+        {
+          "source": "skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh",
+          "target": "wardrobe/preset/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh"
+        },
+        {
+          "source": "skills/git-guardrails-claude-code/SKILL.md",
+          "target": "wardrobe/preset/skills/git-guardrails-claude-code/SKILL.md"
+        },
+        {
+          "source": "skills/grill-me/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/grill-me/agents/openai.yaml"
+        },
+        {
+          "source": "skills/grill-me/SKILL.md",
+          "target": "wardrobe/preset/skills/grill-me/SKILL.md"
+        },
+        {
+          "source": "skills/grill-with-docs/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/grill-with-docs/agents/openai.yaml"
+        },
+        {
+          "source": "skills/grill-with-docs/SKILL.md",
+          "target": "wardrobe/preset/skills/grill-with-docs/SKILL.md"
+        },
+        {
+          "source": "skills/grilling/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/grilling/agents/openai.yaml"
+        },
+        {
+          "source": "skills/grilling/SKILL.md",
+          "target": "wardrobe/preset/skills/grilling/SKILL.md"
+        },
+        {
+          "source": "skills/handoff/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/handoff/agents/openai.yaml"
+        },
+        {
+          "source": "skills/handoff/SKILL.md",
+          "target": "wardrobe/preset/skills/handoff/SKILL.md"
+        },
+        {
+          "source": "skills/implement/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/implement/agents/openai.yaml"
+        },
+        {
+          "source": "skills/implement/SKILL.md",
+          "target": "wardrobe/preset/skills/implement/SKILL.md"
+        },
+        {
+          "source": "skills/implement-spec/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/implement-spec/agents/openai.yaml"
+        },
+        {
+          "source": "skills/implement-spec/SKILL.md",
+          "target": "wardrobe/preset/skills/implement-spec/SKILL.md"
+        },
+        {
+          "source": "skills/improve-codebase-architecture/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/improve-codebase-architecture/agents/openai.yaml"
+        },
+        {
+          "source": "skills/improve-codebase-architecture/HTML-REPORT.md",
+          "target": "wardrobe/preset/skills/improve-codebase-architecture/HTML-REPORT.md"
+        },
+        {
+          "source": "skills/improve-codebase-architecture/SKILL.md",
+          "target": "wardrobe/preset/skills/improve-codebase-architecture/SKILL.md"
+        },
+        {
+          "source": "skills/loop-me/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/loop-me/agents/openai.yaml"
+        },
+        {
+          "source": "skills/loop-me/SKILL.md",
+          "target": "wardrobe/preset/skills/loop-me/SKILL.md"
+        },
+        {
+          "source": "skills/update/references/integration.md",
+          "target": "wardrobe/preset/skills/update/references/integration.md"
+        },
+        {
+          "source": "skills/update/references/lineage.md",
+          "target": "wardrobe/preset/skills/update/references/lineage.md"
+        },
+        {
+          "source": "skills/maintain/SKILL.md",
+          "target": "wardrobe/preset/skills/maintain/SKILL.md"
+        },
+        {
+          "source": "skills/migrate-to-shoehorn/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/migrate-to-shoehorn/agents/openai.yaml"
+        },
+        {
+          "source": "skills/migrate-to-shoehorn/SKILL.md",
+          "target": "wardrobe/preset/skills/migrate-to-shoehorn/SKILL.md"
+        },
+        {
+          "source": "skills/pr/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/pr/agents/openai.yaml"
+        },
+        {
+          "source": "skills/pr/CREDITS.md",
+          "target": "wardrobe/preset/skills/pr/CREDITS.md"
+        },
+        {
+          "source": "skills/pr/SKILL.md",
+          "target": "wardrobe/preset/skills/pr/SKILL.md"
+        },
+        {
+          "source": "skills/project-architecture/references/README.md",
+          "target": "wardrobe/preset/skills/project-architecture/references/README.md"
+        },
+        {
+          "source": "skills/project-architecture/SKILL.md",
+          "target": "wardrobe/preset/skills/project-architecture/SKILL.md"
+        },
+        {
+          "source": "skills/prototype/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/prototype/agents/openai.yaml"
+        },
+        {
+          "source": "skills/prototype/LOGIC.md",
+          "target": "wardrobe/preset/skills/prototype/LOGIC.md"
+        },
+        {
+          "source": "skills/prototype/SKILL.md",
+          "target": "wardrobe/preset/skills/prototype/SKILL.md"
+        },
+        {
+          "source": "skills/prototype/UI.md",
+          "target": "wardrobe/preset/skills/prototype/UI.md"
+        },
+        {
+          "source": "skills/research/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/research/agents/openai.yaml"
+        },
+        {
+          "source": "skills/research/SKILL.md",
+          "target": "wardrobe/preset/skills/research/SKILL.md"
+        },
+        {
+          "source": "skills/resolving-merge-conflicts/SKILL.md",
+          "target": "wardrobe/preset/skills/resolving-merge-conflicts/SKILL.md"
+        },
+        {
+          "source": "skills/retro/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/retro/agents/openai.yaml"
+        },
+        {
+          "source": "skills/retro/SKILL.md",
+          "target": "wardrobe/preset/skills/retro/SKILL.md"
+        },
+        {
+          "source": "skills/route/SKILL.md",
+          "target": "wardrobe/preset/skills/route/SKILL.md"
+        },
+        {
+          "source": "skills/scaffold-exercises/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/scaffold-exercises/agents/openai.yaml"
+        },
+        {
+          "source": "skills/scaffold-exercises/SKILL.md",
+          "target": "wardrobe/preset/skills/scaffold-exercises/SKILL.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/agents/openai.yaml"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/domain.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/domain.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/issue-tracker-github.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/issue-tracker-github.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/issue-tracker-local.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/issue-tracker-local.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/domain.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/domain.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/execution-ledger.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/execution-ledger.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/issue-tracker-github.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/issue-tracker-github.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/issue-tracker-gitlab.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/issue-tracker-gitlab.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/issue-tracker-local.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/issue-tracker-local.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/pi-workflow-contract.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/pi-workflow-contract.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/references/triage-labels.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/references/triage-labels.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/SKILL.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/SKILL.md"
+        },
+        {
+          "source": "skills/setup-matt-pocock-skills/triage-labels.md",
+          "target": "wardrobe/preset/skills/setup-matt-pocock-skills/triage-labels.md"
+        },
+        {
+          "source": "skills/setup-pre-commit/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/setup-pre-commit/agents/openai.yaml"
+        },
+        {
+          "source": "skills/setup-pre-commit/SKILL.md",
+          "target": "wardrobe/preset/skills/setup-pre-commit/SKILL.md"
+        },
+        {
+          "source": "skills/setup-ts-deep-modules/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/setup-ts-deep-modules/agents/openai.yaml"
+        },
+        {
+          "source": "skills/setup-ts-deep-modules/dependency-cruiser.config.cjs",
+          "target": "wardrobe/preset/skills/setup-ts-deep-modules/dependency-cruiser.config.cjs"
+        },
+        {
+          "source": "skills/setup-ts-deep-modules/SKILL.md",
+          "target": "wardrobe/preset/skills/setup-ts-deep-modules/SKILL.md"
+        },
+        {
+          "source": "skills/skill-creator/agents/analyzer.md",
+          "target": "wardrobe/preset/skills/skill-creator/agents/analyzer.md"
+        },
+        {
+          "source": "skills/skill-creator/agents/comparator.md",
+          "target": "wardrobe/preset/skills/skill-creator/agents/comparator.md"
+        },
+        {
+          "source": "skills/skill-creator/agents/grader.md",
+          "target": "wardrobe/preset/skills/skill-creator/agents/grader.md"
+        },
+        {
+          "source": "skills/skill-creator/assets/eval_review.html",
+          "target": "wardrobe/preset/skills/skill-creator/assets/eval_review.html"
+        },
+        {
+          "source": "skills/skill-creator/eval-viewer/generate_review.py",
+          "target": "wardrobe/preset/skills/skill-creator/eval-viewer/generate_review.py"
+        },
+        {
+          "source": "skills/skill-creator/eval-viewer/viewer.html",
+          "target": "wardrobe/preset/skills/skill-creator/eval-viewer/viewer.html"
+        },
+        {
+          "source": "skills/skill-creator/LICENSE.txt",
+          "target": "wardrobe/preset/skills/skill-creator/LICENSE.txt"
+        },
+        {
+          "source": "skills/skill-creator/references/schemas.md",
+          "target": "wardrobe/preset/skills/skill-creator/references/schemas.md"
+        },
+        {
+          "source": "skills/skill-creator/scripts/__init__.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/__init__.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/aggregate_benchmark.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/aggregate_benchmark.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/generate_report.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/generate_report.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/improve_description.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/improve_description.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/package_skill.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/package_skill.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/quick_validate.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/quick_validate.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/run_eval.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/run_eval.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/run_loop.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/run_loop.py"
+        },
+        {
+          "source": "skills/skill-creator/scripts/utils.py",
+          "target": "wardrobe/preset/skills/skill-creator/scripts/utils.py"
+        },
+        {
+          "source": "skills/skill-creator/SKILL.md",
+          "target": "wardrobe/preset/skills/skill-creator/SKILL.md"
+        },
+        {
+          "source": "skills/tdd/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/tdd/agents/openai.yaml"
+        },
+        {
+          "source": "skills/tdd/mocking.md",
+          "target": "wardrobe/preset/skills/tdd/mocking.md"
+        },
+        {
+          "source": "skills/tdd/SKILL.md",
+          "target": "wardrobe/preset/skills/tdd/SKILL.md"
+        },
+        {
+          "source": "skills/tdd/tests.md",
+          "target": "wardrobe/preset/skills/tdd/tests.md"
+        },
+        {
+          "source": "skills/teach/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/teach/agents/openai.yaml"
+        },
+        {
+          "source": "skills/teach/GLOSSARY-FORMAT.md",
+          "target": "wardrobe/preset/skills/teach/GLOSSARY-FORMAT.md"
+        },
+        {
+          "source": "skills/teach/LEARNING-RECORD-FORMAT.md",
+          "target": "wardrobe/preset/skills/teach/LEARNING-RECORD-FORMAT.md"
+        },
+        {
+          "source": "skills/teach/MISSION-FORMAT.md",
+          "target": "wardrobe/preset/skills/teach/MISSION-FORMAT.md"
+        },
+        {
+          "source": "skills/teach/RESOURCES-FORMAT.md",
+          "target": "wardrobe/preset/skills/teach/RESOURCES-FORMAT.md"
+        },
+        {
+          "source": "skills/teach/SKILL.md",
+          "target": "wardrobe/preset/skills/teach/SKILL.md"
+        },
+        {
+          "source": "skills/to-questionnaire/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/to-questionnaire/agents/openai.yaml"
+        },
+        {
+          "source": "skills/to-questionnaire/SKILL.md",
+          "target": "wardrobe/preset/skills/to-questionnaire/SKILL.md"
+        },
+        {
+          "source": "skills/to-spec/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/to-spec/agents/openai.yaml"
+        },
+        {
+          "source": "skills/to-spec/SKILL.md",
+          "target": "wardrobe/preset/skills/to-spec/SKILL.md"
+        },
+        {
+          "source": "skills/to-tickets/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/to-tickets/agents/openai.yaml"
+        },
+        {
+          "source": "skills/to-tickets/SKILL.md",
+          "target": "wardrobe/preset/skills/to-tickets/SKILL.md"
+        },
+        {
+          "source": "skills/triage/AGENT-BRIEF.md",
+          "target": "wardrobe/preset/skills/triage/AGENT-BRIEF.md"
+        },
+        {
+          "source": "skills/triage/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/triage/agents/openai.yaml"
+        },
+        {
+          "source": "skills/triage/OUT-OF-SCOPE.md",
+          "target": "wardrobe/preset/skills/triage/OUT-OF-SCOPE.md"
+        },
+        {
+          "source": "skills/triage/SKILL.md",
+          "target": "wardrobe/preset/skills/triage/SKILL.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/AGENTS.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/AGENTS.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/metadata.json",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/metadata.json"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/README.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/README.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/_sections.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/_sections.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/_template.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/_template.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/advanced-init-once.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/advanced-init-once.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/advanced-use-latest.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/advanced-use-latest.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-api-routes.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-api-routes.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-defer-await.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-defer-await.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-dependencies.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-dependencies.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-parallel.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-parallel.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/async-suspense-boundaries.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-barrel-imports.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-barrel-imports.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-conditional.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-conditional.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-defer-third-party.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-defer-third-party.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/bundle-preload.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/bundle-preload.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/client-event-listeners.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/client-event-listeners.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/client-localstorage-schema.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/client-localstorage-schema.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/client-passive-event-listeners.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/client-passive-event-listeners.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/client-swr-dedup.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/client-swr-dedup.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-batch-dom-css.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-batch-dom-css.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-cache-function-results.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-cache-function-results.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-cache-property-access.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-cache-property-access.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-cache-storage.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-cache-storage.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-combine-iterations.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-combine-iterations.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-early-exit.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-early-exit.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-flatmap-filter.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-flatmap-filter.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-hoist-regexp.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-hoist-regexp.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-index-maps.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-index-maps.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-length-check-first.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-length-check-first.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-min-max-loop.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-min-max-loop.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-request-idle-callback.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-request-idle-callback.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-set-map-lookups.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-set-map-lookups.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/js-tosorted-immutable.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/js-tosorted-immutable.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-activity.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-activity.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-conditional-render.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-conditional-render.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-content-visibility.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-content-visibility.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-resource-hints.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-resource-hints.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-script-defer-async.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-script-defer-async.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-svg-precision.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-svg-precision.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-defer-reads.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-defer-reads.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-dependencies.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-dependencies.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-derived-state.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-derived-state.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-functional-setstate.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-functional-setstate.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-memo.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-memo.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-no-inline-components.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-no-inline-components.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-transitions.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-transitions.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-after-nonblocking.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-after-nonblocking.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-auth-actions.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-auth-actions.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-cache-lru.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-cache-lru.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-cache-react.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-cache-react.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-dedup-props.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-dedup-props.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-hoist-static-io.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-hoist-static-io.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-no-shared-module-state.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-no-shared-module-state.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-parallel-fetching.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-parallel-fetching.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/rules/server-serialization.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/rules/server-serialization.md"
+        },
+        {
+          "source": "skills/vercel-react-best-practices/SKILL.md",
+          "target": "wardrobe/preset/skills/vercel-react-best-practices/SKILL.md"
+        },
+        {
+          "source": "skills/verify-product/references/evidence-levels.md",
+          "target": "wardrobe/preset/skills/verify-product/references/evidence-levels.md"
+        },
+        {
+          "source": "skills/verify-product/SKILL.md",
+          "target": "wardrobe/preset/skills/verify-product/SKILL.md"
+        },
+        {
+          "source": "skills/wait-what/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/wait-what/agents/openai.yaml"
+        },
+        {
+          "source": "skills/wait-what/SKILL.md",
+          "target": "wardrobe/preset/skills/wait-what/SKILL.md"
+        },
+        {
+          "source": "skills/wayfinder/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/wayfinder/agents/openai.yaml"
+        },
+        {
+          "source": "skills/wayfinder/SKILL.md",
+          "target": "wardrobe/preset/skills/wayfinder/SKILL.md"
+        },
+        {
+          "source": "skills/web-design-guidelines/SKILL.md",
+          "target": "wardrobe/preset/skills/web-design-guidelines/SKILL.md"
+        },
+        {
+          "source": "skills/wizard/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/wizard/agents/openai.yaml"
+        },
+        {
+          "source": "skills/wizard/SKILL.md",
+          "target": "wardrobe/preset/skills/wizard/SKILL.md"
+        },
+        {
+          "source": "skills/wizard/template.sh",
+          "target": "wardrobe/preset/skills/wizard/template.sh"
+        },
+        {
+          "source": "skills/writing-beats/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/writing-beats/agents/openai.yaml"
+        },
+        {
+          "source": "skills/writing-beats/SKILL.md",
+          "target": "wardrobe/preset/skills/writing-beats/SKILL.md"
+        },
+        {
+          "source": "skills/writing-for-agents/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/writing-for-agents/agents/openai.yaml"
+        },
+        {
+          "source": "skills/writing-for-agents/SKILL-MECHANICS.md",
+          "target": "wardrobe/preset/skills/writing-for-agents/SKILL-MECHANICS.md"
+        },
+        {
+          "source": "skills/writing-for-agents/SKILL.md",
+          "target": "wardrobe/preset/skills/writing-for-agents/SKILL.md"
+        },
+        {
+          "source": "skills/writing-fragments/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/writing-fragments/agents/openai.yaml"
+        },
+        {
+          "source": "skills/writing-fragments/SKILL.md",
+          "target": "wardrobe/preset/skills/writing-fragments/SKILL.md"
+        },
+        {
+          "source": "skills/writing-shape/agents/openai.yaml",
+          "target": "wardrobe/preset/skills/writing-shape/agents/openai.yaml"
+        },
+        {
+          "source": "skills/writing-shape/SKILL.md",
+          "target": "wardrobe/preset/skills/writing-shape/SKILL.md"
+        },
+        {
+          "source": "wardrobe-resources/mcp.json",
+          "target": "mcp.json",
+          "mutable": true,
+          "template": true
+        },
+        {
+          "source": "wardrobe-resources/web-search.json",
+          "target": "web-search.json",
+          "mutable": true
+        },
+        {
+          "source": "vendor/sol-pi/LICENSE",
+          "target": "wardrobe/preset/vendor/sol-pi/LICENSE"
+        },
+        {
+          "source": "vendor/sol-pi/THIRD_PARTY_NOTICES.md",
+          "target": "wardrobe/preset/vendor/sol-pi/THIRD_PARTY_NOTICES.md"
+        },
+        {
+          "source": "vendor/sol-pi/docs/compatibility.md",
+          "target": "wardrobe/preset/vendor/sol-pi/docs/compatibility.md"
+        },
+        {
+          "source": "vendor/sol-pi/docs/configuration.md",
+          "target": "wardrobe/preset/vendor/sol-pi/docs/configuration.md"
+        },
+        {
+          "source": "vendor/sol-pi/source.json",
+          "target": "wardrobe/preset/vendor/sol-pi/source.json"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/config.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/config.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/action-fusion/file-queue.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/action-fusion/file-queue.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/action-fusion/index.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/action-fusion/index.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/action-fusion/then-run.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/action-fusion/then-run.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/archive.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/archive.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/candidate.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/candidate.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/config.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/config.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/index.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/index.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/journal.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/journal.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/provider.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/provider.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/receipt.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/evidence-preserving-reducer/receipt.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/observation-pack/index.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/observation-pack/index.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/observation-pack/ledger.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/observation-pack/ledger.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/observation-pack/observation.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/observation-pack/observation.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/economics.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/economics.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/extension.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/extension.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/index.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/index.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/plan.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/plan.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/projection.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/projection.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/state.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/state.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/extensions/online-context-compact/tools.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/extensions/online-context-compact/tools.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/index.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/index.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/runtime-paths.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/runtime-paths.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/shell-options.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/shell-options.ts"
+        },
+        {
+          "source": "vendor/sol-pi/src/sol-pi/tui.ts",
+          "target": "wardrobe/preset/vendor/sol-pi/src/sol-pi/tui.ts"
+        },
+        {
+          "source": "docs/pi-native-capabilities.md",
+          "target": "docs/pi-native-capabilities.md"
+        },
+        {
+          "source": "global/pi-statusline.json",
+          "target": "pi-statusline.json",
+          "mutable": true
+        },
+        {
+          "source": "skills/update/SKILL.md",
+          "target": "wardrobe/preset/skills/update/SKILL.md"
+        }
+      ],
+      "directories": [
+        "mcp-data/codebase-memory",
+        "mcp-data/context-mode"
+      ],
+      "settings": {
+        "theme": "dark",
+        "tuiMode": "fullscreen",
+        "quietStartup": "header",
+        "compaction": {
+          "enabled": true,
+          "reserveTokens": 16384,
+          "keepRecentTokens": 20000
+        },
+        "enableSkillCommands": true,
+        "defaultTools": [
+          "+codemode"
+        ]
+      }
+    }
+  },
+  "scripts": {
+    "test:maintenance": "node --test --test-concurrency=1 reconcile.test.mjs skill-update-plan.test.mjs managed-mcp.test.mjs mcp-smoke.test.mjs pi-runtime.test.mjs"
+  }
+}
